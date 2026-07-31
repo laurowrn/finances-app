@@ -1,0 +1,41 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    ports:
+      - "8000:8000"
+    environment:
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: group_finance
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      LOGIN_PASSWORD: ${LOGIN_PASSWORD:-casal}
+      USER_A_NAME: ${USER_A_NAME:-Pessoa A}
+      USER_A_SALARY: ${USER_A_SALARY:-5000}
+      USER_B_NAME: ${USER_B_NAME:-Pessoa B}
+      USER_B_SALARY: ${USER_B_SALARY:-3000}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}
+      CORS_ORIGINS: http://localhost:3009
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3009:3009"
+    environment:
+      VITE_API_BASE: http://localhost:8000
+
+volumes:
+  mongo_data:

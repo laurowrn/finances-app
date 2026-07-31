@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "group-finance-backend"
+version = "0.1.0"
+description = "Gestão de finanças em grupo (casal) — backend FastAPI + MongoDB"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "motor>=3.5",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "python-jose[cryptography]>=3.3",
+    "passlib[bcrypt]>=1.7",
+    "python-multipart>=0.0.9",
+    "ofxparse>=0.21",
+    "pdfplumber>=0.11",
+    "anthropic>=0.40",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "mongomock-motor>=0.0.34",
+    "httpx>=0.27",
+    "ruff>=0.6",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# B008: padrão do FastAPI (Depends() em default de argumento) — intencional.
+ignore = ["B008"]
+
+[tool.setuptools]
+packages = ["app"]
