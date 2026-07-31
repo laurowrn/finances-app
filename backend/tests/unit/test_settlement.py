@@ -1,4 +1,4 @@
-from app.services.settlement import TxInput, UserInput, compute_report
+from app.services.settlement import PaymentInput, TxInput, UserInput, compute_report
 
 
 def _users():
@@ -79,6 +79,33 @@ def test_by_category_breakdown():
     assert by_cat["c2"].individual == 30.0
     # ordenado por total desc
     assert report.by_category[0].category_id == "c1"
+
+
+def test_payment_reduces_balance_and_settlement():
+    txs = [
+        TxInput("A", 1000.0, True, "c1", "Mercado"),
+        TxInput("B", 200.0, True, "c1", "Mercado"),
+    ]
+    payments = [PaymentInput(from_user_id="B", to_user_id="A", amount=100.0)]
+    report = compute_report("2025-03", _users(), txs, payments)
+
+    bruno = next(u for u in report.users if u.user_id == "B")
+    ana = next(u for u in report.users if u.user_id == "A")
+    assert bruno.balance == -150.0  # devia 250, pagou 100
+    assert ana.balance == 150.0
+    assert report.settlement.from_user_id == "B"
+    assert report.settlement.to_user_id == "A"
+    assert report.settlement.amount == 150.0
+
+
+def test_payment_can_fully_settle():
+    txs = [TxInput("A", 400.0, True, "c1", "Mercado")]
+    payments = [PaymentInput(from_user_id="B", to_user_id="A", amount=200.0)]
+    report = compute_report(
+        "2025-03", [UserInput("A", "Ana", 4000.0), UserInput("B", "Bruno", 4000.0)], txs, payments
+    )
+    assert report.settlement.amount == 0.0
+    assert report.settlement.from_user_id is None
 
 
 def test_zero_income_falls_back_to_even():

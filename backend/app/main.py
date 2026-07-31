@@ -8,6 +8,7 @@ from app.routers import (
     auth,
     categories,
     imports,
+    payments,
     reports,
     rules,
     transactions,
@@ -42,6 +43,7 @@ app.include_router(categories.router)
 app.include_router(rules.router)
 app.include_router(imports.router)
 app.include_router(transactions.router)
+app.include_router(payments.router)
 app.include_router(reports.router)
 
 

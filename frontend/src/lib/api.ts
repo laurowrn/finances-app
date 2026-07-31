@@ -115,6 +115,34 @@ export interface ImportSummary {
   created_at: string;
 }
 
+export interface ImportPreviewRow {
+  date: string;
+  description: string;
+  amount: number;
+  category_id: string | null;
+  is_shared: boolean;
+  classified_by: string;
+  rule_id: string | null;
+  is_duplicate: boolean;
+}
+
+export interface ImportPreview {
+  filename: string;
+  source: Source;
+  owner_user_id: string;
+  rows: ImportPreviewRow[];
+}
+
+export interface ImportCommitRow {
+  date: string;
+  description: string;
+  amount: number;
+  category_id: string | null;
+  is_shared: boolean;
+  classified_by: string;
+  rule_id: string | null;
+}
+
 export interface UserReport {
   user_id: string;
   name: string;
@@ -149,6 +177,29 @@ export interface MonthlyReport {
   users: UserReport[];
   settlement: Settlement;
   by_category: CategoryBreakdown[];
+}
+
+export interface Payment {
+  id: string;
+  date: string;
+  period: string;
+  from_user_id: string;
+  to_user_id: string;
+  amount: number;
+  note: string | null;
+  created_at: string;
+}
+
+export interface UserBalance {
+  user_id: string;
+  name: string;
+  balance: number;
+}
+
+export interface CumulativeBalance {
+  as_of_period: string;
+  balances: UserBalance[];
+  settlement: Settlement;
 }
 
 // ---------- Endpoints ----------
@@ -223,14 +274,32 @@ export const api = {
     request<Transaction>(`/transactions/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteTransaction: (id: string) => request(`/transactions/${id}`, { method: "DELETE" }),
 
-  importFile: (file: File, owner_user_id: string) => {
+  previewImport: (file: File, owner_user_id: string) => {
     const form = new FormData();
     form.append("file", file);
     form.append("owner_user_id", owner_user_id);
-    return request<ImportSummary>("/imports", { method: "POST", body: form });
+    return request<ImportPreview>("/imports/preview", { method: "POST", body: form });
   },
+  commitImport: (body: {
+    filename: string;
+    source: Source;
+    owner_user_id: string;
+    rows: ImportCommitRow[];
+  }) => request<ImportSummary>("/imports/commit", { method: "POST", body: JSON.stringify(body) }),
 
   report: (period: string) => request<MonthlyReport>(`/reports/${period}`),
+  cumulativeBalance: () => request<CumulativeBalance>("/reports/balance"),
+
+  payments: (period?: string) =>
+    request<Payment[]>(`/payments${period ? `?period=${period}` : ""}`),
+  createPayment: (body: {
+    date: string;
+    from_user_id: string;
+    to_user_id: string;
+    amount: number;
+    note?: string;
+  }) => request<Payment>("/payments", { method: "POST", body: JSON.stringify(body) }),
+  deletePayment: (id: string) => request(`/payments/${id}`, { method: "DELETE" }),
 };
 
 export function formatBRL(value: number): string {

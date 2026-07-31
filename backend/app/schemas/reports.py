@@ -35,3 +35,15 @@ class MonthlyReport(BaseModel):
     users: list[UserReport]
     settlement: Settlement
     by_category: list[CategoryBreakdown]
+
+
+class UserBalance(BaseModel):
+    user_id: str
+    name: str
+    balance: float  # saldo acumulado até o último período com transações
+
+
+class CumulativeBalance(BaseModel):
+    as_of_period: str
+    balances: list[UserBalance]
+    settlement: Settlement

@@ -1,6 +1,7 @@
 import {
   ArrowLeftRight,
   FileUp,
+  HandCoins,
   LayoutDashboard,
   ListChecks,
   LogOut,
@@ -18,6 +19,7 @@ const NAV = [
   { to: "/import", label: "Importar", icon: FileUp },
   { to: "/transactions", label: "Gastos", icon: ArrowLeftRight },
   { to: "/rules", label: "Regras", icon: Wand2 },
+  { to: "/payments", label: "Pagamentos", icon: HandCoins },
   { to: "/categories", label: "Categorias", icon: Tags },
   { to: "/settings", label: "Configurações", icon: Settings },
 ];

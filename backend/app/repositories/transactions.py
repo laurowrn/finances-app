@@ -5,51 +5,83 @@ from pymongo.errors import DuplicateKeyError
 
 from app.db import get_db
 from app.models.enums import ClassifiedBy, Source, Split
-from app.repositories.common import doc_out, oid
-from app.services.classifier import Match, classify
+from app.repositories.common import doc_out, oid, period_of
+from app.services.classifier import classify
 from app.services.dedup import dedup_hash, merchant_key
 
 
-def _period_of(d: date) -> str:
-    return d.strftime("%Y-%m")
+def _build_doc(
+    d: date,
+    description: str,
+    amount: float,
+    owner_user_id: str,
+    category_id: str | None,
+    is_shared: bool,
+    source: Source,
+    classified_by: ClassifiedBy,
+    rule_id: str | None,
+    import_batch_id: str | None,
+) -> dict:
+    date_iso = d.isoformat()
+    return {
+        "date": date_iso,
+        "period": period_of(d),
+        "description": description,
+        "raw_description": description,
+        "amount": round(amount, 2),
+        "owner_user_id": owner_user_id,
+        "category_id": category_id,
+        "is_shared": is_shared,
+        "source": source.value,
+        "classified_by": classified_by.value,
+        "rule_id": rule_id,
+        "import_batch_id": import_batch_id,
+        "dedup_hash": dedup_hash(date_iso, amount, owner_user_id, description),
+        "created_at": datetime.now(UTC),
+    }
 
 
-async def insert_parsed(
-    parsed: list,  # list[ParsedTx]
+async def existing_hashes(hashes: list[str]) -> set[str]:
+    """Dado um lote de dedup_hash, retorna os que já existem em `transactions`."""
+    if not hashes:
+        return set()
+    docs = (
+        await get_db()
+        .transactions.find({"dedup_hash": {"$in": hashes}}, {"dedup_hash": 1})
+        .to_list(length=len(hashes))
+    )
+    return {d["dedup_hash"] for d in docs}
+
+
+async def insert_reviewed(
+    rows: list,  # list[ImportCommitRow]
     owner_user_id: str,
     source: Source,
     import_batch_id: str,
-    engine_rules: list,
 ) -> dict:
-    """Insere transações parseadas, aplicando dedup e o rule engine. Retorna contagens."""
+    """Insere linhas já revisadas/classificadas pelo usuário. Recalcula o dedup_hash
+    no servidor (não confia no que veio do cliente); o índice único é a rede de
+    segurança final contra duplicatas."""
     db = get_db()
     total = matched = unmatched = duplicates = 0
 
-    for p in parsed:
+    for r in rows:
         total += 1
-        date_iso = p.date.isoformat()
-        h = dedup_hash(date_iso, p.amount, owner_user_id, p.description)
-        match: Match | None = classify(p.description, engine_rules)
-
-        doc = {
-            "date": date_iso,
-            "period": _period_of(p.date),
-            "description": p.description,
-            "raw_description": p.description,
-            "amount": round(p.amount, 2),
-            "owner_user_id": owner_user_id,
-            "category_id": match.category_id if match else None,
-            "is_shared": (match.split == Split.SHARED) if match else True,
-            "source": source.value,
-            "classified_by": ClassifiedBy.RULE.value if match else ClassifiedBy.NONE.value,
-            "rule_id": match.rule_id if match else None,
-            "import_batch_id": import_batch_id,
-            "dedup_hash": h,
-            "created_at": datetime.now(UTC),
-        }
+        doc = _build_doc(
+            r.date,
+            r.description,
+            r.amount,
+            owner_user_id,
+            r.category_id,
+            r.is_shared,
+            source,
+            r.classified_by,
+            r.rule_id,
+            import_batch_id,
+        )
         try:
             await db.transactions.insert_one(doc)
-            if match:
+            if r.category_id:
                 matched += 1
             else:
                 unmatched += 1
@@ -68,7 +100,7 @@ async def create_manual(data: dict) -> dict:
     d: date = data["date"]
     doc = {
         "date": d.isoformat(),
-        "period": _period_of(d),
+        "period": period_of(d),
         "description": data["description"],
         "raw_description": data["description"],
         "amount": round(data["amount"], 2),
@@ -173,3 +205,9 @@ async def unmatched_groups() -> list[dict]:
 async def transactions_for_report(period: str) -> list[dict]:
     docs = await get_db().transactions.find({"period": period}).to_list(length=10000)
     return [doc_out(d) for d in docs]
+
+
+async def distinct_periods() -> list[str]:
+    """Todos os períodos com pelo menos uma transação, em ordem cronológica."""
+    periods = await get_db().transactions.distinct("period")
+    return sorted(periods)

@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { Categories } from "@/pages/Categories";
 import { Import } from "@/pages/Import";
 import { Login } from "@/pages/Login";
+import { Payments } from "@/pages/Payments";
 import { Report } from "@/pages/Report";
 import { Rules } from "@/pages/Rules";
 import { SettingsPage } from "@/pages/Settings";
@@ -30,6 +31,7 @@ export default function App() {
         <Route path="import" element={<Import />} />
         <Route path="transactions" element={<Transactions />} />
         <Route path="rules" element={<Rules />} />
+        <Route path="payments" element={<Payments />} />
         <Route path="categories" element={<Categories />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>

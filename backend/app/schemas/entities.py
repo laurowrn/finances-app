@@ -138,7 +138,64 @@ class AcceptSuggestionRequest(BaseModel):
     priority: int = 100
 
 
+# ---------- Payments ----------
+
+
+class PaymentCreate(BaseModel):
+    date: date
+    from_user_id: str
+    to_user_id: str
+    amount: float = Field(gt=0)
+    note: str | None = None
+
+
+class PaymentOut(BaseModel):
+    id: str
+    date: date
+    period: str
+    from_user_id: str
+    to_user_id: str
+    amount: float
+    note: str | None = None
+    created_at: datetime
+
+
 # ---------- Imports ----------
+
+
+class ImportPreviewRow(BaseModel):
+    date: date
+    description: str
+    amount: float
+    category_id: str | None
+    is_shared: bool
+    classified_by: ClassifiedBy
+    rule_id: str | None = None
+    is_duplicate: bool
+
+
+class ImportPreview(BaseModel):
+    filename: str
+    source: Source
+    owner_user_id: str
+    rows: list[ImportPreviewRow]
+
+
+class ImportCommitRow(BaseModel):
+    date: date
+    description: str
+    amount: float = Field(gt=0)
+    category_id: str | None = None
+    is_shared: bool = True
+    classified_by: ClassifiedBy = ClassifiedBy.MANUAL
+    rule_id: str | None = None
+
+
+class ImportCommitRequest(BaseModel):
+    filename: str
+    source: Source
+    owner_user_id: str
+    rows: list[ImportCommitRow]
 
 
 class ImportSummary(BaseModel):

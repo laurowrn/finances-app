@@ -1,5 +1,11 @@
+from datetime import date
+
 from bson import ObjectId
 from bson.errors import InvalidId
+
+
+def period_of(d: date) -> str:
+    return d.strftime("%Y-%m")
 
 
 def oid(value: str) -> ObjectId:

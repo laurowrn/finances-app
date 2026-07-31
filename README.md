@@ -85,3 +85,30 @@ e aceita. Sem `ANTHROPIC_API_KEY`, tudo funciona com regras + classificação ma
 
 `cd backend && make test` — cobre o cálculo do acerto (`test_settlement.py`), o rule engine,
 o dedup, os parsers, e um teste de integração do endpoint de relatório.
+
+## Migrando dados de uma planilha antiga
+
+Script único (`backend/app/migrate_xlsx.py`) para importar uma planilha `.xlsx` no formato
+"Gastos Mensais" (uma aba por mês, com salários, gastos e pagamentos) para o Mongo: cria
+categorias novas se precisar, registra o salário de cada mês (`incomes`), importa as
+transações (todas como **compartilhadas**, sem passar por regra) e os pagamentos reais
+(linhas de pagamento com valor negativo são ignoradas — são um artefato de carregar saldo
+de um mês pro outro, e o saldo acumulado do app já resolve isso). É idempotente: pode rodar
+mais de uma vez sem duplicar dados.
+
+Requer `openpyxl` (`uv add --dev openpyxl` dentro de `backend/`, se ainda não instalado) e
+que o seed já tenha rodado (usuários precisam existir no Mongo com os nomes configurados).
+
+```bash
+cd backend
+MONGO_URI="mongodb://localhost:27018" MONGO_DB="group_finance" \
+  USER_A_NAME="Lauro" USER_B_NAME="Nayara" \
+  ./.venv/bin/python -m app.migrate_xlsx "../Gastos Mensais.xlsx" --dry-run   # só relatório, não grava
+
+# revisado o resumo (categorias, linhas puladas, pagamentos ignorados), roda sem --dry-run:
+MONGO_URI="mongodb://localhost:27018" MONGO_DB="group_finance" \
+  USER_A_NAME="Lauro" USER_B_NAME="Nayara" \
+  ./.venv/bin/python -m app.migrate_xlsx "../Gastos Mensais.xlsx"
+```
+
+Ajuste `MONGO_URI`/`USER_A_NAME`/`USER_B_NAME` para os valores do seu `.env` se forem diferentes.

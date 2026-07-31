@@ -27,6 +27,7 @@ async def ensure_indexes() -> None:
     await db.transactions.create_index("category_id")
     await db.rules.create_index("priority")
     await db.incomes.create_index([("user_id", 1), ("period", 1)], unique=True)
+    await db.payments.create_index("period")
 
 
 def close_client() -> None:

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Scale, TrendingUp, Wallet } from "lucide-react";
+import { Scale, TrendingUp, Wallet } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import {
   Bar,
   BarChart,
@@ -16,6 +17,7 @@ import {
 } from "recharts";
 
 import { PeriodPicker } from "@/components/PeriodPicker";
+import { SettlementCard } from "@/components/SettlementCard";
 import { Card, EmptyState, PageHeader, Spinner } from "@/components/ui";
 import { api, currentPeriod, formatBRL, type UserReport } from "@/lib/api";
 
@@ -47,7 +49,15 @@ export function Report() {
 
       {data && data.users.length > 0 && (
         <div className="flex flex-col gap-6">
-          <SettlementCard report={data} />
+          <SettlementCard
+            title="Acerto do mês"
+            settlement={data.settlement}
+            action={
+              <Link to="/payments" className="text-sm font-medium text-indigo-600 hover:underline">
+                Registrar pagamento →
+              </Link>
+            }
+          />
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <StatCard
@@ -136,38 +146,6 @@ export function Report() {
       )}
     </div>
   );
-}
-
-function SettlementCard({ report }: { report: { settlement: MonthlyReportSettlement } }) {
-  const s = report.settlement;
-  if (!s.amount || !s.from_user_name) {
-    return (
-      <Card className="bg-emerald-50">
-        <p className="text-center text-sm font-medium text-emerald-700">
-          Tudo certo — ninguém deve nada neste mês. 🎉
-        </p>
-      </Card>
-    );
-  }
-  return (
-    <Card className="border-indigo-100 bg-gradient-to-br from-indigo-50 to-white">
-      <p className="mb-3 text-sm font-medium text-gray-500">Acerto do mês</p>
-      <div className="flex flex-wrap items-center justify-center gap-3 text-center">
-        <span className="text-lg font-semibold text-gray-900">{s.from_user_name}</span>
-        <span className="flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-1.5 text-lg font-bold text-white">
-          {formatBRL(s.amount)}
-          <ArrowRight className="h-5 w-5" />
-        </span>
-        <span className="text-lg font-semibold text-gray-900">{s.to_user_name}</span>
-      </div>
-    </Card>
-  );
-}
-
-interface MonthlyReportSettlement {
-  from_user_name: string | null;
-  to_user_name: string | null;
-  amount: number;
 }
 
 function StatCard({

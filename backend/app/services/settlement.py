@@ -36,6 +36,20 @@ class UserInput:
     income: float
 
 
+@dataclass
+class PaymentInput:
+    from_user_id: str
+    to_user_id: str
+    amount: float
+
+
+@dataclass
+class BalanceInput:
+    user_id: str
+    name: str
+    balance: float
+
+
 def _round(value: float) -> float:
     return round(value + 1e-9, 2)
 
@@ -44,7 +58,9 @@ def compute_report(
     period: str,
     users: list[UserInput],
     transactions: list[TxInput],
+    payments: list[PaymentInput] | None = None,
 ) -> MonthlyReport:
+    payments = payments or []
     shared_total = _round(sum(t.amount for t in transactions if t.is_shared))
     total_income = sum(u.income for u in users)
 
@@ -59,6 +75,11 @@ def compute_report(
         proportion = (u.income / total_income) if total_income > 0 else (1 / len(users))
         fair_share = _round(proportion * shared_total)
         balance = _round(shared_paid - fair_share)
+        balance = _round(
+            balance
+            + sum(p.amount for p in payments if p.from_user_id == u.id)
+            - sum(p.amount for p in payments if p.to_user_id == u.id)
+        )
         user_reports.append(
             UserReport(
                 user_id=u.id,
@@ -85,8 +106,8 @@ def compute_report(
     )
 
 
-def _compute_settlement(reports: list[UserReport]) -> Settlement:
-    """Quem tem saldo negativo (pagou menos que a cota) paga ao de saldo positivo."""
+def compute_settlement_from_balances(balances: list[BalanceInput]) -> Settlement:
+    """Quem tem saldo negativo (deve) paga ao de saldo positivo (tem a receber)."""
     empty = Settlement(
         from_user_id=None,
         from_user_name=None,
@@ -94,11 +115,11 @@ def _compute_settlement(reports: list[UserReport]) -> Settlement:
         to_user_name=None,
         amount=0.0,
     )
-    if not reports:
+    if not balances:
         return empty
 
-    debtor = min(reports, key=lambda r: r.balance)  # mais negativo -> deve
-    creditor = max(reports, key=lambda r: r.balance)  # mais positivo -> recebe
+    debtor = min(balances, key=lambda b: b.balance)  # mais negativo -> deve
+    creditor = max(balances, key=lambda b: b.balance)  # mais positivo -> recebe
     amount = _round(min(-debtor.balance, creditor.balance))
     if amount <= 0.005 or debtor.user_id == creditor.user_id:
         return empty
@@ -109,6 +130,12 @@ def _compute_settlement(reports: list[UserReport]) -> Settlement:
         to_user_id=creditor.user_id,
         to_user_name=creditor.name,
         amount=amount,
+    )
+
+
+def _compute_settlement(reports: list[UserReport]) -> Settlement:
+    return compute_settlement_from_balances(
+        [BalanceInput(user_id=r.user_id, name=r.name, balance=r.balance) for r in reports]
     )
 
 
