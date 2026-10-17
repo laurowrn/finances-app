@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.db import close_client, ensure_indexes
 from app.routers import (
+    ai,
     auth,
     categories,
     imports,
@@ -38,6 +39,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(ai.router)
 app.include_router(users.router)
 app.include_router(categories.router)
 app.include_router(rules.router)

@@ -48,6 +48,15 @@ def _matches(rule: Rule, description: str) -> bool:
     return False
 
 
+def split_flags(split: Split) -> tuple[bool, bool]:
+    """Traduz o split de uma regra nas duas flags gravadas na transação.
+
+    Retorna `(is_shared, is_ignored)`. Ignorado não é compartilhado nem
+    individual: ele simplesmente não entra em nenhuma conta.
+    """
+    return split == Split.SHARED, split == Split.IGNORED
+
+
 def classify(description: str, rules: list[Rule]) -> Match | None:
     """Retorna o primeiro match segundo a ordem de prioridade, ou None."""
     for rule in sorted(rules, key=lambda r: r.priority):

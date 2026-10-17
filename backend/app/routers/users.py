@@ -11,7 +11,7 @@ router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(curren
 @router.get("", response_model=list[UserOut])
 async def list_users():
     return [
-        UserOut(id=u["id"], name=u["name"], base_salary=u.get("base_salary", 0.0))
+        UserOut(id=u["id"], name=u["name"], base_salary_cents=u.get("base_salary_cents", 0))
         for u in await users_repo.list_users()
     ]
 
@@ -21,7 +21,7 @@ async def update_user(user_id: str, body: UserUpdate):
     u = await users_repo.update_user(user_id, body.model_dump(exclude_none=True))
     if u is None:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    return UserOut(id=u["id"], name=u["name"], base_salary=u.get("base_salary", 0.0))
+    return UserOut(id=u["id"], name=u["name"], base_salary_cents=u.get("base_salary_cents", 0))
 
 
 # ---------- incomes (salário por período) ----------
@@ -34,5 +34,5 @@ async def list_incomes(period: str):
 
 @router.put("/incomes", response_model=IncomeOut)
 async def upsert_income(body: IncomeUpsert):
-    await users_repo.upsert_income(body.user_id, body.period, body.amount)
-    return IncomeOut(user_id=body.user_id, period=body.period, amount=body.amount)
+    await users_repo.upsert_income(body.user_id, body.period, body.amount_cents)
+    return IncomeOut(user_id=body.user_id, period=body.period, amount_cents=body.amount_cents)

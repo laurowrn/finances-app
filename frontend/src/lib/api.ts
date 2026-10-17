@@ -1,3 +1,9 @@
+import type { Cents } from "@/lib/money";
+
+// Dinheiro vive em money.ts; reexportado aqui porque as telas já importam daqui.
+export { centsToInput, formatBRL, parseBRLToCents } from "@/lib/money";
+export type { Cents } from "@/lib/money";
+
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000";
 const TOKEN_KEY = "gf_token";
 
@@ -44,14 +50,17 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 // ---------- Types ----------
 
-export type Split = "shared" | "individual";
+// "ignored": lançamento fica no histórico mas fora do relatório e do acerto.
+export type Split = "shared" | "individual" | "ignored";
 export type Source = "ofx" | "csv" | "pdf" | "manual";
+export type StatementType = "account" | "credit_card";
+export type Institution = "nubank" | "itau" | "other" | "unknown";
 export type MatchOp = "contains" | "equals" | "regex";
 
 export interface User {
   id: string;
   name: string;
-  base_salary: number;
+  base_salary_cents: number;
 }
 
 export interface Category {
@@ -82,10 +91,11 @@ export interface Transaction {
   period: string;
   description: string;
   raw_description: string;
-  amount: number;
+  amount_cents: Cents;
   owner_user_id: string;
   category_id: string | null;
   is_shared: boolean;
+  is_ignored: boolean;
   source: Source;
   classified_by: string;
   rule_id: string | null;
@@ -118,9 +128,10 @@ export interface ImportSummary {
 export interface ImportPreviewRow {
   date: string;
   description: string;
-  amount: number;
+  amount_cents: Cents;
   category_id: string | null;
   is_shared: boolean;
+  is_ignored: boolean;
   classified_by: string;
   rule_id: string | null;
   is_duplicate: boolean;
@@ -131,14 +142,32 @@ export interface ImportPreview {
   source: Source;
   owner_user_id: string;
   rows: ImportPreviewRow[];
+  detected_start: string | null;
+  detected_end: string | null;
 }
+
+export interface ImportBatch {
+  id: string;
+  filename: string;
+  source: Source;
+  owner_user_id: string;
+  institution: Institution;
+  statement_type: StatementType | null;
+  statement_start: string | null;
+  statement_end: string | null;
+  created_at: string;
+  counts: Record<string, number>;
+}
+export interface CoverageIssue { kind: "gap" | "overlap"; start: string; end: string; previous_filename: string; filename: string; }
+export interface Coverage { owner_user_id: string; statement_type: StatementType; institution: Institution; batches: ImportBatch[]; gaps: CoverageIssue[]; overlaps: CoverageIssue[]; }
 
 export interface ImportCommitRow {
   date: string;
   description: string;
-  amount: number;
+  amount_cents: Cents;
   category_id: string | null;
   is_shared: boolean;
+  is_ignored: boolean;
   classified_by: string;
   rule_id: string | null;
 }
@@ -146,21 +175,21 @@ export interface ImportCommitRow {
 export interface UserReport {
   user_id: string;
   name: string;
-  income: number;
+  income_cents: Cents;
   proportion: number;
-  shared_paid: number;
-  individual_spent: number;
-  total_spent: number;
-  fair_share: number;
-  balance: number;
+  shared_paid_cents: Cents;
+  individual_spent_cents: Cents;
+  total_spent_cents: Cents;
+  fair_share_cents: Cents;
+  balance_cents: Cents;
 }
 
 export interface CategoryBreakdown {
   category_id: string | null;
   category_name: string;
-  shared: number;
-  individual: number;
-  total: number;
+  shared_cents: Cents;
+  individual_cents: Cents;
+  total_cents: Cents;
 }
 
 export interface Settlement {
@@ -168,12 +197,12 @@ export interface Settlement {
   from_user_name: string | null;
   to_user_id: string | null;
   to_user_name: string | null;
-  amount: number;
+  amount_cents: Cents;
 }
 
 export interface MonthlyReport {
   period: string;
-  shared_total: number;
+  shared_total_cents: Cents;
   users: UserReport[];
   settlement: Settlement;
   by_category: CategoryBreakdown[];
@@ -185,7 +214,7 @@ export interface Payment {
   period: string;
   from_user_id: string;
   to_user_id: string;
-  amount: number;
+  amount_cents: Cents;
   note: string | null;
   created_at: string;
 }
@@ -193,13 +222,101 @@ export interface Payment {
 export interface UserBalance {
   user_id: string;
   name: string;
-  balance: number;
+  balance_cents: Cents;
 }
 
 export interface CumulativeBalance {
   as_of_period: string;
   balances: UserBalance[];
   settlement: Settlement;
+}
+
+export interface TrendUserPoint {
+  user_id: string;
+  name: string;
+  total_spent_cents: Cents;
+  shared_paid_cents: Cents;
+  balance_cents: Cents;
+}
+
+export interface TrendCategoryPoint {
+  category_id: string | null;
+  category_name: string;
+  total_cents: Cents;
+}
+
+export interface TrendPoint {
+  period: string;
+  shared_total_cents: Cents;
+  individual_total_cents: Cents;
+  total_cents: Cents;
+  users: TrendUserPoint[];
+  by_category: TrendCategoryPoint[];
+}
+
+export interface TrendReport {
+  points: TrendPoint[];
+  categories: string[];
+  average_total_cents: Cents;
+}
+
+// ---------- Relatório de IA ----------
+
+export type GoalMetric = "category_max" | "total_max" | "merchant_max" | "count_max";
+
+export interface Goal {
+  id: string;
+  title: string;
+  metric: GoalMetric;
+  category_id: string | null;
+  match: string | null;
+  target_cents: Cents | null;
+  target_count: number | null;
+  baseline_cents: Cents | null;
+  baseline_count: number | null;
+  rationale: string;
+}
+
+export interface GoalProgress {
+  goal: Goal;
+  actual_cents: Cents | null;
+  actual_count: number | null;
+  target: number;
+  actual: number;
+  achieved: boolean;
+  delta: number;
+  saved_cents: Cents | null;
+}
+
+export interface ReportProgress {
+  period: string;
+  goals: GoalProgress[];
+  achieved_count: number;
+  total_count: number;
+  total_saved_cents: Cents;
+  /** Lançamentos no mês avaliado. Zero significa "mês ainda não começou" —
+   *  metas de teto ficam trivialmente cumpridas e o número não vale nada. */
+  transaction_count: number;
+}
+
+export interface AiReport {
+  id: string;
+  period: string;
+  goals_period: string;
+  summary_md: string;
+  goals: Goal[];
+  previous_review_md: string | null;
+  generated_by: string;
+  created_at: string;
+}
+
+export interface AiReportSummary {
+  id: string;
+  period: string;
+  goals_period: string;
+  created_at: string;
+  generated_by: string;
+  goal_count: number;
 }
 
 // ---------- Endpoints ----------
@@ -216,11 +333,13 @@ export const api = {
   updateUser: (id: string, body: Partial<User>) =>
     request<User>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   incomes: (period: string) =>
-    request<{ user_id: string; period: string; amount: number }[]>(`/users/incomes/${period}`),
-  upsertIncome: (user_id: string, period: string, amount: number) =>
+    request<{ user_id: string; period: string; amount_cents: number }[]>(
+      `/users/incomes/${period}`,
+    ),
+  upsertIncome: (user_id: string, period: string, amount_cents: Cents) =>
     request(`/users/incomes`, {
       method: "PUT",
-      body: JSON.stringify({ user_id, period, amount }),
+      body: JSON.stringify({ user_id, period, amount_cents }),
     }),
 
   categories: () => request<Category[]>("/categories"),
@@ -265,30 +384,39 @@ export const api = {
   createTransaction: (body: {
     date: string;
     description: string;
-    amount: number;
+    amount_cents: Cents;
     owner_user_id: string;
     category_id?: string | null;
     is_shared: boolean;
+    is_ignored?: boolean;
   }) => request<Transaction>("/transactions", { method: "POST", body: JSON.stringify(body) }),
   updateTransaction: (id: string, body: Partial<Transaction>) =>
     request<Transaction>(`/transactions/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteTransaction: (id: string) => request(`/transactions/${id}`, { method: "DELETE" }),
 
-  previewImport: (file: File, owner_user_id: string) => {
+  previewImport: (file: File, owner_user_id: string, statement_start?: string, statement_end?: string) => {
     const form = new FormData();
     form.append("file", file);
     form.append("owner_user_id", owner_user_id);
+    if (statement_start) form.append("statement_start", statement_start);
+    if (statement_end) form.append("statement_end", statement_end);
     return request<ImportPreview>("/imports/preview", { method: "POST", body: form });
   },
   commitImport: (body: {
     filename: string;
     source: Source;
     owner_user_id: string;
+    statement_type: StatementType;
+    statement_start?: string;
+    statement_end?: string;
     rows: ImportCommitRow[];
   }) => request<ImportSummary>("/imports/commit", { method: "POST", body: JSON.stringify(body) }),
+  importCoverage: (owner_user_id: string, statement_type: StatementType, institution: Institution) =>
+    request<Coverage>(`/imports/coverage?owner_user_id=${encodeURIComponent(owner_user_id)}&statement_type=${statement_type}&institution=${institution}`),
 
   report: (period: string) => request<MonthlyReport>(`/reports/${period}`),
   cumulativeBalance: () => request<CumulativeBalance>("/reports/balance"),
+  trend: (months: number) => request<TrendReport>(`/reports/trend?months=${months}`),
 
   payments: (period?: string) =>
     request<Payment[]>(`/payments${period ? `?period=${period}` : ""}`),
@@ -296,17 +424,29 @@ export const api = {
     date: string;
     from_user_id: string;
     to_user_id: string;
-    amount: number;
+    amount_cents: Cents;
     note?: string;
   }) => request<Payment>("/payments", { method: "POST", body: JSON.stringify(body) }),
   deletePayment: (id: string) => request(`/payments/${id}`, { method: "DELETE" }),
+
+  aiReports: () => request<AiReportSummary[]>("/ai/reports"),
+  aiReport: (period: string) => request<AiReport>(`/ai/reports/${period}`),
+  aiReportProgress: (period: string, against?: string) =>
+    request<ReportProgress>(
+      `/ai/reports/${period}/progress${against ? `?against=${encodeURIComponent(against)}` : ""}`,
+    ),
 };
 
-export function formatBRL(value: number): string {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+function toPeriod(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 export function currentPeriod(): string {
+  return toPeriod(new Date());
+}
+
+/** Mês fechado — é sobre ele que o acerto das contas acontece. */
+export function previousPeriod(): string {
   const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  return toPeriod(new Date(now.getFullYear(), now.getMonth() - 1, 1));
 }

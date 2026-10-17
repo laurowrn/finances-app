@@ -28,6 +28,7 @@ from app.models.enums import ClassifiedBy, Source
 from app.repositories import users as users_repo
 from app.repositories.common import period_of
 from app.services.dedup import dedup_hash
+from app.services.money import format_brl, from_float, parse_brl
 from app.settings import get_settings
 
 SHEET_PERIODS: dict[str, tuple[int, int]] = {
@@ -70,16 +71,13 @@ NEW_CATEGORIES = [
 FALLBACK_CATEGORY = "Outros"
 
 
-def _parse_amount(raw: object) -> float | None:
+def _parse_amount(raw: object) -> int | None:
+    """Célula do xlsx -> centavos. openpyxl entrega número (float) ou texto."""
     if raw is None:
         return None
     if isinstance(raw, int | float):
-        return float(raw)
-    text = str(raw).strip().replace(" ", "").replace(",", ".")
-    try:
-        return float(text)
-    except ValueError:
-        return None
+        return from_float(raw)
+    return parse_brl(str(raw))
 
 
 async def _resolve_users() -> dict[str, str]:
@@ -135,7 +133,7 @@ async def _migrate_sheet(
     dry_run: bool,
     stats: dict[str, int],
     warnings: list[str],
-    last_salaries: dict[str, float],
+    last_salaries: dict[str, int],
 ) -> None:
     db = get_db()
     period = f"{year:04d}-{month:02d}"
@@ -205,7 +203,7 @@ async def _migrate_sheet(
             "period": period_of(tx_date),
             "description": description,
             "raw_description": description,
-            "amount": round(amount, 2),
+            "amount_cents": amount,
             "owner_user_id": owner_user_id,
             "category_id": category_id,
             "is_shared": True,
@@ -248,7 +246,7 @@ async def _migrate_sheet(
             continue
         if not isinstance(name, str) or name not in user_ids:
             warnings.append(
-                f"{sheet_name} I{row}: pagamento de {amount} sem pagador reconhecível "
+                f"{sheet_name} I{row}: pagamento de {format_brl(amount)} sem pagador reconhecível "
                 f"({name!r}) — pulado, revise manualmente"
             )
             stats["pay_skipped_no_name"] += 1
@@ -264,7 +262,7 @@ async def _migrate_sheet(
                     "period": period,
                     "from_user_id": from_user_id,
                     "to_user_id": to_user_id,
-                    "amount": round(amount, 2),
+                    "amount_cents": amount,
                 }
             )
             if existing:
@@ -276,7 +274,7 @@ async def _migrate_sheet(
                     "period": period,
                     "from_user_id": from_user_id,
                     "to_user_id": to_user_id,
-                    "amount": round(amount, 2),
+                    "amount_cents": amount,
                     "note": note,
                     "created_at": datetime.now(UTC),
                 }
@@ -302,7 +300,7 @@ async def migrate(path: str, dry_run: bool) -> None:
         "pay_duplicate": 0,
         "incomes_upserted": 0,
     }
-    last_salaries: dict[str, float] = {}
+    last_salaries: dict[str, int] = {}
 
     for sheet_name, (year, month) in SHEET_PERIODS.items():
         if sheet_name not in wb.sheetnames:
@@ -323,7 +321,7 @@ async def migrate(path: str, dry_run: bool) -> None:
 
     if not dry_run and last_salaries:
         for name, salary in last_salaries.items():
-            await users_repo.update_user(user_ids[name], {"base_salary": salary})
+            await users_repo.update_user(user_ids[name], {"base_salary_cents": salary})
 
     print()
     print("=== Resumo da migração" + (" (DRY-RUN — nada foi gravado)" if dry_run else "") + " ===")
@@ -336,7 +334,7 @@ async def migrate(path: str, dry_run: bool) -> None:
     print(f"Pagamentos já existentes (duplicata exata): {stats['pay_duplicate']}")
     print(f"Incomes upsertados: {stats['incomes_upserted']}")
     if last_salaries:
-        print(f"Novo base_salary (último mês encontrado): {last_salaries}")
+        print(f"Novo base_salary (último mês encontrado): {last_salaries} (centavos)")
     if warnings:
         print(f"\n{len(warnings)} aviso(s):")
         for w in warnings:

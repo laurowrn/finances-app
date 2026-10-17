@@ -3,7 +3,7 @@ import { useState, type ReactNode } from "react";
 
 import { PeriodPicker } from "@/components/PeriodPicker";
 import { Button, Card, Input, PageHeader, Spinner } from "@/components/ui";
-import { api, currentPeriod, formatBRL } from "@/lib/api";
+import { api, centsToInput, currentPeriod, formatBRL, parseBRLToCents } from "@/lib/api";
 import { useUsers } from "@/hooks/useMeta";
 
 export function SettingsPage() {
@@ -16,7 +16,7 @@ export function SettingsPage() {
   });
 
   const incomeMap: Record<string, number> = Object.fromEntries(
-    (incomes ?? []).map((i) => [i.user_id, i.amount]),
+    (incomes ?? []).map((i) => [i.user_id, i.amount_cents]),
   );
 
   return (
@@ -53,21 +53,21 @@ function UserSettings({
   monthIncome,
   onSaved,
 }: {
-  user: { id: string; name: string; base_salary: number };
+  user: { id: string; name: string; base_salary_cents: number };
   period: string;
   monthIncome?: number;
   onSaved: () => void;
 }) {
   const [name, setName] = useState(user.name);
-  const [baseSalary, setBaseSalary] = useState(String(user.base_salary));
-  const [income, setIncome] = useState(String(monthIncome ?? user.base_salary));
+  const [baseSalary, setBaseSalary] = useState(centsToInput(user.base_salary_cents));
+  const [income, setIncome] = useState(centsToInput(monthIncome ?? user.base_salary_cents));
 
   const saveUser = useMutation({
-    mutationFn: () => api.updateUser(user.id, { name, base_salary: Number(baseSalary) }),
+    mutationFn: () => api.updateUser(user.id, { name, base_salary_cents: parseBRLToCents(baseSalary) ?? 0 }),
     onSuccess: onSaved,
   });
   const saveIncome = useMutation({
-    mutationFn: () => api.upsertIncome(user.id, period, Number(income)),
+    mutationFn: () => api.upsertIncome(user.id, period, parseBRLToCents(income) ?? 0),
     onSuccess: onSaved,
   });
 
@@ -100,7 +100,7 @@ function UserSettings({
             />
           </Field>
           <p className="mb-2 text-xs text-gray-400">
-            Sem ajuste, o relatório usa o salário base ({formatBRL(user.base_salary)}).
+            Sem ajuste, o relatório usa o salário base ({formatBRL(user.base_salary_cents)}).
           </p>
           <Button size="sm" onClick={() => saveIncome.mutate()}>
             Salvar renda do mês

@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { Badge, Button, Card, EmptyState, Input, PageHeader, Select, Spinner } from "@/components/ui";
 import { api, type MatchOp, type RuleSuggestion, type Split } from "@/lib/api";
+import { SPLIT_LABEL, SPLIT_TONE } from "@/lib/split";
 import { categoryMap, useCategories } from "@/hooks/useMeta";
 
 export function Rules() {
@@ -118,8 +119,8 @@ export function Rules() {
                   </td>
                   <td className="px-4 py-2">{cMap[r.category_id] ?? "—"}</td>
                   <td className="px-4 py-2">
-                    <Badge tone={r.split_default === "shared" ? "indigo" : "gray"}>
-                      {r.split_default === "shared" ? "Compartilhado" : "Individual"}
+                    <Badge tone={SPLIT_TONE[r.split_default]}>
+                      {SPLIT_LABEL[r.split_default]}
                     </Badge>
                   </td>
                   <td className="px-4 py-2 text-right">
@@ -184,6 +185,7 @@ function SuggestionRow({
       <Select className="w-36" value={split} onChange={(e) => setSplit(e.target.value as Split)}>
         <option value="shared">Compartilhado</option>
         <option value="individual">Individual</option>
+        <option value="ignored">Ignorar</option>
       </Select>
       <Button size="sm" onClick={() => accept.mutate()} disabled={!categoryId || accept.isPending}>
         Criar regra
@@ -248,6 +250,7 @@ function NewRuleForm({
         <Select value={split} onChange={(e) => setSplit(e.target.value as Split)}>
           <option value="shared">Compartilhado</option>
           <option value="individual">Individual</option>
+          <option value="ignored">Ignorar</option>
         </Select>
       </div>
       <div className="mt-3 text-right">

@@ -21,19 +21,22 @@ async def update_user(user_id: str, changes: dict) -> dict | None:
 # ---------- incomes (salário por mês) ----------
 
 
-async def upsert_income(user_id: str, period: str, amount: float) -> None:
+async def upsert_income(user_id: str, period: str, amount_cents: int) -> None:
     await get_db().incomes.update_one(
         {"user_id": user_id, "period": period},
-        {"$set": {"amount": amount}},
+        {"$set": {"amount_cents": amount_cents}},
         upsert=True,
     )
 
 
-async def get_income(user_id: str, period: str) -> float | None:
+async def get_income(user_id: str, period: str) -> int | None:
     doc = await get_db().incomes.find_one({"user_id": user_id, "period": period})
-    return doc["amount"] if doc else None
+    return doc["amount_cents"] if doc else None
 
 
 async def list_incomes(period: str) -> list[dict]:
     docs = await get_db().incomes.find({"period": period}).to_list(length=100)
-    return [{"user_id": d["user_id"], "period": d["period"], "amount": d["amount"]} for d in docs]
+    return [
+        {"user_id": d["user_id"], "period": d["period"], "amount_cents": d["amount_cents"]}
+        for d in docs
+    ]

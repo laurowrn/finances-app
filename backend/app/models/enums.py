@@ -2,8 +2,16 @@ from enum import StrEnum
 
 
 class Split(StrEnum):
+    """Como um gasto entra na conta do casal.
+
+    IGNORED existe porque o extrato da conta e a fatura do cartão se sobrepõem:
+    "Pagamento de fatura" no extrato é a mesma despesa que as compras da fatura.
+    Lançamento ignorado fica gravado (some do relatório, não do histórico).
+    """
+
     SHARED = "shared"
     INDIVIDUAL = "individual"
+    IGNORED = "ignored"
 
 
 class Source(StrEnum):
@@ -11,6 +19,11 @@ class Source(StrEnum):
     CSV = "csv"
     PDF = "pdf"
     MANUAL = "manual"
+
+
+class StatementType(StrEnum):
+    ACCOUNT = "account"
+    CREDIT_CARD = "credit_card"
 
 
 class ClassifiedBy(StrEnum):

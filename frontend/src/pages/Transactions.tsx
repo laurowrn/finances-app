@@ -1,10 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { ChevronDown, ChevronsUpDown, ChevronUp, Plus, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
 
 import { PeriodPicker } from "@/components/PeriodPicker";
 import { Badge, Button, Card, EmptyState, Input, PageHeader, Select, Spinner } from "@/components/ui";
-import { api, currentPeriod, formatBRL, type Transaction } from "@/lib/api";
+import { api, currentPeriod, formatBRL, parseBRLToCents, type Transaction } from "@/lib/api";
+import {
+  nextSort,
+  sortTransactions,
+  type Sort,
+  type SortKey,
+} from "@/lib/sortTransactions";
+import {
+  nextSplitState,
+  SPLIT_LABEL,
+  SPLIT_TONE,
+  toSplitFlags,
+  toSplitState,
+} from "@/lib/split";
 import { categoryMap, useCategories, userMap, useUsers } from "@/hooks/useMeta";
 
 export function Transactions() {
@@ -22,6 +35,13 @@ export function Transactions() {
     queryKey: ["transactions", period, ownerFilter],
     queryFn: () => api.transactions({ period, owner_user_id: ownerFilter || undefined }),
   });
+
+  const [sort, setSort] = useState<Sort>({ key: "date", dir: "desc" });
+  const sorted = useMemo(
+    () => sortTransactions(txs ?? [], sort, uMap, cMap),
+    [txs, sort, uMap, cMap],
+  );
+  const toggleSort = (key: SortKey) => setSort((s) => nextSort(s, key));
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["transactions"] });
@@ -91,17 +111,17 @@ export function Transactions() {
             <table className="w-full text-sm">
               <thead className="border-b border-gray-100 bg-gray-50 text-left text-xs uppercase text-gray-500">
                 <tr>
-                  <th className="px-4 py-3">Data</th>
-                  <th className="px-4 py-3">Descrição</th>
-                  <th className="px-4 py-3">Quem</th>
-                  <th className="px-4 py-3">Categoria</th>
-                  <th className="px-4 py-3">Divisão</th>
-                  <th className="px-4 py-3 text-right">Valor</th>
+                  <SortHeader label="Data" sortKey="date" sort={sort} onSort={toggleSort} />
+                  <SortHeader label="Descrição" sortKey="description" sort={sort} onSort={toggleSort} />
+                  <SortHeader label="Quem" sortKey="owner" sort={sort} onSort={toggleSort} />
+                  <SortHeader label="Categoria" sortKey="category" sort={sort} onSort={toggleSort} />
+                  <SortHeader label="Divisão" sortKey="split" sort={sort} onSort={toggleSort} />
+                  <SortHeader label="Valor" sortKey="amount" sort={sort} onSort={toggleSort} align="right" />
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody>
-                {txs.map((t) => (
+                {sorted.map((t) => (
                   <tr key={t.id} className="border-b border-gray-50 hover:bg-gray-50/50">
                     <td className="whitespace-nowrap px-4 py-2 text-gray-500">{t.date}</td>
                     <td className="max-w-56 truncate px-4 py-2" title={t.description}>
@@ -135,18 +155,21 @@ export function Transactions() {
                     <td className="px-4 py-2">
                       <button
                         onClick={() =>
-                          update.mutate({ id: t.id, body: { is_shared: !t.is_shared } })
+                          update.mutate({
+                            id: t.id,
+                            body: toSplitFlags(nextSplitState(toSplitState(t))),
+                          })
                         }
                         className="cursor-pointer"
-                        title="Alternar compartilhado/individual"
+                        title="Alternar compartilhado / individual / ignorado"
                       >
-                        <Badge tone={t.is_shared ? "indigo" : "gray"}>
-                          {t.is_shared ? "Compartilhado" : "Individual"}
+                        <Badge tone={SPLIT_TONE[toSplitState(t)]}>
+                          {SPLIT_LABEL[toSplitState(t)]}
                         </Badge>
                       </button>
                     </td>
                     <td className="whitespace-nowrap px-4 py-2 text-right font-medium">
-                      {formatBRL(t.amount)}
+                      {formatBRL(t.amount_cents)}
                     </td>
                     <td className="px-4 py-2 text-right">
                       <button
@@ -190,7 +213,7 @@ function ManualForm({
       api.createTransaction({
         date,
         description,
-        amount: Number(amount),
+        amount_cents: amountCents ?? 0,
         owner_user_id: owner,
         category_id: categoryId || null,
         is_shared: isShared,
@@ -202,7 +225,8 @@ function ManualForm({
     },
   });
 
-  const valid = description && Number(amount) > 0 && owner;
+  const amountCents = parseBRLToCents(amount);
+  const valid = description && (amountCents ?? 0) > 0 && owner;
 
   return (
     <Card className="mb-4">
@@ -258,5 +282,38 @@ function ManualForm({
         </Button>
       </div>
     </Card>
+  );
+}
+
+function SortHeader({
+  label,
+  sortKey,
+  sort,
+  onSort,
+  align = "left",
+}: {
+  label: string;
+  sortKey: SortKey;
+  sort: Sort;
+  onSort: (key: SortKey) => void;
+  align?: "left" | "right";
+}) {
+  const active = sort.key === sortKey;
+  const Icon = !active ? ChevronsUpDown : sort.dir === "asc" ? ChevronUp : ChevronDown;
+  return (
+    <th className={`px-4 py-3 ${align === "right" ? "text-right" : "text-left"}`} aria-sort={
+      active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"
+    }>
+      <button
+        onClick={() => onSort(sortKey)}
+        className={`inline-flex items-center gap-1 uppercase transition hover:text-gray-900 ${
+          active ? "text-gray-900" : ""
+        } ${align === "right" ? "flex-row-reverse" : ""}`}
+        title={`Ordenar por ${label.toLowerCase()}`}
+      >
+        {label}
+        <Icon className={`h-3.5 w-3.5 ${active ? "text-indigo-600" : "text-gray-300"}`} />
+      </button>
+    </th>
   );
 }

@@ -4,19 +4,20 @@ from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
 from app.db import get_db
-from app.models.enums import ClassifiedBy, Source, Split
+from app.models.enums import ClassifiedBy, Source
 from app.repositories.common import doc_out, oid, period_of
-from app.services.classifier import classify
+from app.services.classifier import classify, split_flags
 from app.services.dedup import dedup_hash, merchant_key
 
 
 def _build_doc(
     d: date,
     description: str,
-    amount: float,
+    amount_cents: int,
     owner_user_id: str,
     category_id: str | None,
     is_shared: bool,
+    is_ignored: bool,
     source: Source,
     classified_by: ClassifiedBy,
     rule_id: str | None,
@@ -28,15 +29,16 @@ def _build_doc(
         "period": period_of(d),
         "description": description,
         "raw_description": description,
-        "amount": round(amount, 2),
+        "amount_cents": amount_cents,
         "owner_user_id": owner_user_id,
         "category_id": category_id,
         "is_shared": is_shared,
+        "is_ignored": is_ignored,
         "source": source.value,
         "classified_by": classified_by.value,
         "rule_id": rule_id,
         "import_batch_id": import_batch_id,
-        "dedup_hash": dedup_hash(date_iso, amount, owner_user_id, description),
+        "dedup_hash": dedup_hash(date_iso, amount_cents, owner_user_id, description),
         "created_at": datetime.now(UTC),
     }
 
@@ -70,10 +72,11 @@ async def insert_reviewed(
         doc = _build_doc(
             r.date,
             r.description,
-            r.amount,
+            r.amount_cents,
             owner_user_id,
             r.category_id,
             r.is_shared,
+            r.is_ignored,
             source,
             r.classified_by,
             r.rule_id,
@@ -103,16 +106,17 @@ async def create_manual(data: dict) -> dict:
         "period": period_of(d),
         "description": data["description"],
         "raw_description": data["description"],
-        "amount": round(data["amount"], 2),
+        "amount_cents": data["amount_cents"],
         "owner_user_id": data["owner_user_id"],
         "category_id": data.get("category_id"),
         "is_shared": data.get("is_shared", True),
+        "is_ignored": data.get("is_ignored", False),
         "source": Source.MANUAL.value,
         "classified_by": ClassifiedBy.MANUAL.value,
         "rule_id": None,
         "import_batch_id": None,
         "dedup_hash": dedup_hash(
-            d.isoformat(), data["amount"], data["owner_user_id"], data["description"]
+            d.isoformat(), data["amount_cents"], data["owner_user_id"], data["description"]
         ),
         "created_at": datetime.now(UTC),
     }
@@ -141,7 +145,7 @@ async def list_transactions(
 
 async def update_transaction(tx_id: str, changes: dict) -> dict | None:
     changes = {k: v for k, v in changes.items() if v is not None}
-    if "category_id" in changes or "is_shared" in changes:
+    if "category_id" in changes or "is_shared" in changes or "is_ignored" in changes:
         # edição manual sobrescreve a classificação por regra
         changes["classified_by"] = ClassifiedBy.MANUAL.value
     if changes:
@@ -174,12 +178,14 @@ async def reclassify(engine_rules: list, only_unclassified: bool = True) -> int:
         match = classify(d.get("description", ""), engine_rules)
         if not match:
             continue
+        is_shared, is_ignored = split_flags(match.split)
         await get_db().transactions.update_one(
             {"_id": d["_id"]},
             {
                 "$set": {
                     "category_id": match.category_id,
-                    "is_shared": match.split == Split.SHARED,
+                    "is_shared": is_shared,
+                    "is_ignored": is_ignored,
                     "classified_by": ClassifiedBy.RULE.value,
                     "rule_id": match.rule_id,
                 }
@@ -203,6 +209,19 @@ async def unmatched_groups() -> list[dict]:
 
 
 async def transactions_for_report(period: str) -> list[dict]:
+    """Só o que conta como gasto: transações ignoradas ficam de fora do relatório
+    (e, por consequência, do acerto)."""
+    docs = (
+        await get_db()
+        .transactions.find({"period": period, "is_ignored": {"$ne": True}})
+        .to_list(length=10000)
+    )
+    return [doc_out(d) for d in docs]
+
+
+async def transactions_in_period(period: str) -> list[dict]:
+    """Tudo do mês, INCLUSIVE os ignorados. Use quando o objetivo é auditar o
+    período; para relatório/acerto use `transactions_for_report`."""
     docs = await get_db().transactions.find({"period": period}).to_list(length=10000)
     return [doc_out(d) for d in docs]
 

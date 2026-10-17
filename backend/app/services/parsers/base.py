@@ -10,4 +10,4 @@ class ParseError(Exception):
 class ParsedTx:
     date: date
     description: str
-    amount: float  # sempre positivo = valor do gasto (débito)
+    amount_cents: int  # sempre positivo = valor do gasto (débito)

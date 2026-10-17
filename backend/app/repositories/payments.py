@@ -11,7 +11,7 @@ async def create_payment(data: dict) -> dict:
         "period": period_of(d),
         "from_user_id": data["from_user_id"],
         "to_user_id": data["to_user_id"],
-        "amount": round(data["amount"], 2),
+        "amount_cents": data["amount_cents"],
         "note": data.get("note"),
         "created_at": datetime.now(UTC),
     }
@@ -23,6 +23,12 @@ async def list_payments(period: str | None = None) -> list[dict]:
     query = {"period": period} if period else {}
     docs = await get_db().payments.find(query).sort("date", -1).to_list(length=5000)
     return [doc_out(d) for d in docs]
+
+
+async def distinct_periods() -> list[str]:
+    """Todos os períodos com pelo menos um pagamento, em ordem cronológica."""
+    periods = await get_db().payments.distinct("period")
+    return sorted(periods)
 
 
 async def delete_payment(payment_id: str) -> None:

@@ -4,7 +4,13 @@ import { useState } from "react";
 
 import { SettlementCard } from "@/components/SettlementCard";
 import { Button, Card, EmptyState, Input, PageHeader, Select, Spinner } from "@/components/ui";
-import { api, formatBRL, type CumulativeBalance } from "@/lib/api";
+import {
+  api,
+  centsToInput,
+  formatBRL,
+  parseBRLToCents,
+  type CumulativeBalance,
+} from "@/lib/api";
 import { useUsers, userMap } from "@/hooks/useMeta";
 
 function today(): string {
@@ -96,7 +102,7 @@ export function Payments() {
                         {p.note ?? "—"}
                       </td>
                       <td className="whitespace-nowrap px-4 py-2 text-right font-medium">
-                        {formatBRL(p.amount)}
+                        {formatBRL(p.amount_cents)}
                       </td>
                       <td className="px-4 py-2 text-right">
                         <button
@@ -132,9 +138,8 @@ function PaymentForm({
   const [date, setDate] = useState(today());
   const [fromId, setFromId] = useState(debtorId);
   const [toId, setToId] = useState(creditorId);
-  const [amount, setAmount] = useState(
-    balance?.settlement.amount ? String(balance.settlement.amount) : "",
-  );
+  // Pré-preenche com o que falta acertar, em reais (o input é decimal).
+  const [amount, setAmount] = useState(centsToInput(balance?.settlement.amount_cents || null));
   const [note, setNote] = useState("");
 
   const create = useMutation({
@@ -143,7 +148,7 @@ function PaymentForm({
         date,
         from_user_id: fromId,
         to_user_id: toId,
-        amount: Number(amount),
+        amount_cents: amountCents ?? 0,
         note: note || undefined,
       }),
     onSuccess: () => {
@@ -152,7 +157,8 @@ function PaymentForm({
     },
   });
 
-  const valid = fromId && toId && fromId !== toId && Number(amount) > 0;
+  const amountCents = parseBRLToCents(amount);
+  const valid = fromId && toId && fromId !== toId && (amountCents ?? 0) > 0;
 
   return (
     <Card className="mb-4 mt-4">

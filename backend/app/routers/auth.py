@@ -12,7 +12,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 async def public_users():
     """Lista pública (id + nome) para a tela de login escolher quem está entrando."""
     return [
-        UserOut(id=u["id"], name=u["name"], base_salary=u.get("base_salary", 0.0))
+        UserOut(id=u["id"], name=u["name"], base_salary_cents=u.get("base_salary_cents", 0))
         for u in await users_repo.list_users()
     ]
 
@@ -28,5 +28,9 @@ async def login(body: LoginRequest):
     token = create_access_token(user["id"])
     return TokenResponse(
         access_token=token,
-        user=UserOut(id=user["id"], name=user["name"], base_salary=user.get("base_salary", 0.0)),
+        user=UserOut(
+            id=user["id"],
+            name=user["name"],
+            base_salary_cents=user.get("base_salary_cents", 0),
+        ),
     )

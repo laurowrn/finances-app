@@ -20,8 +20,8 @@ async def _seed(client):
     ana_id, bruno_id = ObjectId(), ObjectId()
     await db.users.insert_many(
         [
-            {"_id": ana_id, "name": "Ana", "base_salary": 5000.0},
-            {"_id": bruno_id, "name": "Bruno", "base_salary": 3000.0},
+            {"_id": ana_id, "name": "Ana", "base_salary_cents": 500000},
+            {"_id": bruno_id, "name": "Bruno", "base_salary_cents": 300000},
         ]
     )
     cat_id = ObjectId()
@@ -35,7 +35,7 @@ async def _seed(client):
                 "period": "2025-03",
                 "description": "Mercado",
                 "raw_description": "Mercado",
-                "amount": 1000.0,
+                "amount_cents": 100000,
                 "owner_user_id": str(ana_id),
                 "category_id": str(cat_id),
                 "is_shared": True,
@@ -50,7 +50,7 @@ async def _seed(client):
                 "period": "2025-03",
                 "description": "Mercado",
                 "raw_description": "Mercado",
-                "amount": 200.0,
+                "amount_cents": 20000,
                 "owner_user_id": str(bruno_id),
                 "category_id": str(cat_id),
                 "is_shared": True,
@@ -65,7 +65,9 @@ async def _seed(client):
     return str(ana_id), str(bruno_id)
 
 
-async def test_create_payment_reduces_monthly_report(mock_mongo):
+async def test_monthly_report_ignores_payments(mock_mongo):
+    """O acerto do mês reflete só os gastos do período; quem abate pagamento
+    é o saldo acumulado."""
     ana_id, bruno_id = await _seed(mock_mongo)
     token = create_access_token(ana_id)
     headers = {"Authorization": f"Bearer {token}"}
@@ -77,7 +79,7 @@ async def test_create_payment_reduces_monthly_report(mock_mongo):
                 "date": "2025-03-10",
                 "from_user_id": bruno_id,
                 "to_user_id": ana_id,
-                "amount": 100.0,
+                "amount_cents": 10000,
             },
             headers=headers,
         )
@@ -85,10 +87,20 @@ async def test_create_payment_reduces_monthly_report(mock_mongo):
         payment = resp.json()
         assert payment["period"] == "2025-03"
 
+        # Gastos: Ana 1000 (cota 750), Bruno 200 (cota 450) -> acerto de 250.
+        # O pagamento de 100 NÃO entra aqui.
         resp = await client.get("/reports/2025-03", headers=headers)
         assert resp.status_code == 200
         data = resp.json()
-        assert data["settlement"]["amount"] == 150.0
+        assert data["settlement"]["amount_cents"] == 25000
+        assert {u["name"]: u["balance_cents"] for u in data["users"]} == {
+            "Ana": 25000,
+            "Bruno": -25000,
+        }
+
+        # ...mas entra no saldo acumulado: 250 - 100 = 150.
+        resp = await client.get("/reports/balance", headers=headers)
+        assert resp.json()["settlement"]["amount_cents"] == 15000
 
         resp = await client.get("/payments?period=2025-03", headers=headers)
         assert resp.status_code == 200
@@ -110,7 +122,7 @@ async def test_cumulative_balance_reflects_payment(mock_mongo):
                 "date": "2025-03-10",
                 "from_user_id": bruno_id,
                 "to_user_id": ana_id,
-                "amount": 100.0,
+                "amount_cents": 10000,
             },
             headers=headers,
         )
@@ -120,7 +132,36 @@ async def test_cumulative_balance_reflects_payment(mock_mongo):
         assert data["as_of_period"] == "2025-03"
         assert data["settlement"]["from_user_id"] == bruno_id
         assert data["settlement"]["to_user_id"] == ana_id
-        assert data["settlement"]["amount"] == 150.0
+        assert data["settlement"]["amount_cents"] == 15000
+
+
+async def test_cumulative_balance_reflects_payment_in_period_without_transactions(mock_mongo):
+    """Acerto registrado em um mês sem transações (ex.: pago depois do último import)
+    também precisa abater o saldo acumulado."""
+    ana_id, bruno_id = await _seed(mock_mongo)
+    token = create_access_token(ana_id)
+    headers = {"Authorization": f"Bearer {token}"}
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post(
+            "/payments",
+            json={
+                "date": "2025-08-10",  # nenhuma transação em 2025-08
+                "from_user_id": bruno_id,
+                "to_user_id": ana_id,
+                "amount_cents": 25000,
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 200
+
+        resp = await client.get("/reports/balance", headers=headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["as_of_period"] == "2025-08"
+        # Saldo bruto era 250 (Bruno devia a Ana); o pagamento de 250 zera o acerto.
+        assert data["settlement"]["amount_cents"] == 0
+        assert {b["name"]: b["balance_cents"] for b in data["balances"]} == {"Ana": 0, "Bruno": 0}
 
 
 async def test_payments_require_auth(mock_mongo):

@@ -1,5 +1,5 @@
 from app.models.enums import MatchOp, Split
-from app.services.classifier import Rule, classify
+from app.services.classifier import Rule, classify, split_flags
 
 
 def _rule(id, value, cat, op=MatchOp.CONTAINS, split=Split.SHARED, priority=100, enabled=True):
@@ -42,3 +42,30 @@ def test_equals_op():
     rules = [_rule("r1", "spotify", "assinatura", op=MatchOp.EQUALS)]
     assert classify("Spotify", rules) is not None
     assert classify("Spotify BR premium", rules) is None
+
+
+def test_split_flags_maps_each_split():
+    assert split_flags(Split.SHARED) == (True, False)
+    assert split_flags(Split.INDIVIDUAL) == (False, False)
+    # Ignorado não é compartilhado nem individual — sai da conta inteira.
+    assert split_flags(Split.IGNORED) == (False, True)
+
+
+def test_rule_can_mark_as_ignored():
+    """Extrato da conta e fatura do cartão se sobrepõem: o pagamento da fatura
+    precisa poder ser marcado como ignorado por regra."""
+    rules = [
+        Rule(
+            id="r1",
+            field="description",
+            op=MatchOp.CONTAINS,
+            value="pagamento de fatura",
+            category_id="c-ignorado",
+            split_default=Split.IGNORED,
+            priority=10,
+        )
+    ]
+    match = classify("Pagamento de fatura", rules)
+    assert match is not None
+    assert match.split == Split.IGNORED
+    assert split_flags(match.split) == (False, True)

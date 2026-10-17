@@ -15,7 +15,7 @@ class TokenResponse(BaseModel):
 class UserOut(BaseModel):
     id: str
     name: str
-    base_salary: float
+    base_salary_cents: int
 
 
 TokenResponse.model_rebuild()

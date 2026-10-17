@@ -1,16 +1,23 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, FileUp, UploadCloud } from "lucide-react";
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { Badge, Button, Card, EmptyState, PageHeader, Select, Spinner } from "@/components/ui";
+import {
+  nextSplitState,
+  SPLIT_LABEL,
+  SPLIT_TONE,
+  toSplitFlags,
+  toSplitState,
+} from "@/lib/split";
+import { Badge, Button, Card, EmptyState, Input, PageHeader, Select, Spinner } from "@/components/ui";
 import {
   api,
   formatBRL,
   type ImportCommitRow,
   type ImportPreviewRow,
   type ImportSummary,
-  type Source,
+  type Source, type StatementType, type Coverage, type Institution,
 } from "@/lib/api";
 import { useCategories, useUsers } from "@/hooks/useMeta";
 
@@ -21,6 +28,10 @@ export function Import() {
   const { data: users } = useUsers();
   const { data: categories } = useCategories();
   const [ownerId, setOwnerId] = useState("");
+  const [statementType, setStatementType] = useState<StatementType>("account");
+  const [institution, setInstitution] = useState<Institution>("nubank");
+  const [statementStart, setStatementStart] = useState("");
+  const [statementEnd, setStatementEnd] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -35,12 +46,20 @@ export function Import() {
   const [summary, setSummary] = useState<ImportSummary | null>(null);
 
   const effectiveOwner = ownerId || users?.[0]?.id || "";
+  const queryClient = useQueryClient();
+  const coverageQuery = useQuery({
+    queryKey: ["import-coverage", effectiveOwner, statementType, institution],
+    queryFn: () => api.importCoverage(effectiveOwner, statementType, institution),
+    enabled: Boolean(effectiveOwner),
+  });
 
   const previewMutation = useMutation({
-    mutationFn: () => api.previewImport(file!, effectiveOwner),
+    mutationFn: () => api.previewImport(file!, effectiveOwner, statementStart, statementEnd),
     onSuccess: (data) => {
       const withKeys = data.rows.map((r, i) => ({ ...r, _key: i }));
       setBatch({ filename: data.filename, source: data.source, owner_user_id: data.owner_user_id });
+      if (!statementStart && data.detected_start) setStatementStart(data.detected_start);
+      if (!statementEnd && data.detected_end) setStatementEnd(data.detected_end);
       setRows(withKeys);
       setSummary(null);
       setError("");
@@ -55,15 +74,20 @@ export function Import() {
         filename: batch!.filename,
         source: batch!.source,
         owner_user_id: batch!.owner_user_id,
+        statement_type: statementType,
+        institution,
+        statement_start: statementStart || undefined,
+        statement_end: statementEnd || undefined,
         rows: rows
           .filter((r) => !r.is_duplicate)
           .map(
             (r): ImportCommitRow => ({
               date: r.date,
               description: r.description,
-              amount: r.amount,
+              amount_cents: r.amount_cents,
               category_id: r.category_id,
               is_shared: r.is_shared,
+              is_ignored: r.is_ignored,
               classified_by: r.classified_by,
               rule_id: r.rule_id,
             }),
@@ -76,6 +100,7 @@ export function Import() {
       setRows([]);
       setFile(null);
       setError("");
+      queryClient.invalidateQueries({ queryKey: ["import-coverage"] });
       if (inputRef.current) inputRef.current.value = "";
     },
     onError: (e: Error) => setError(e.message),
@@ -91,9 +116,11 @@ export function Import() {
 
   function setCategory(key: number, categoryId: string) {
     const cat = (categories ?? []).find((c) => c.id === categoryId);
+    // Trocar a categoria à mão tira o "ignorado": só regra ou clique no badge marca.
     updateRow(key, {
       category_id: categoryId || null,
       is_shared: cat ? cat.is_shared_default : true,
+      is_ignored: false,
     });
   }
 
@@ -122,7 +149,7 @@ export function Import() {
       {step === "upload" && (
         <>
           <Card>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Titular do extrato
@@ -145,6 +172,29 @@ export function Import() {
                   className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-indigo-700"
                 />
               </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Tipo de extrato</label>
+                <Select value={statementType} onChange={(e) => setStatementType(e.target.value as StatementType)}>
+                  <option value="account">Conta corrente</option>
+                  <option value="credit_card">Cartão de crédito</option>
+                </Select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Instituição</label>
+                <Select value={institution} onChange={(e) => setInstitution(e.target.value as Institution)}>
+                  <option value="nubank">Nubank</option>
+                  <option value="itau">Itaú</option>
+                  <option value="other">Outra</option>
+                </Select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Período coberto</label>
+                <div className="flex gap-2">
+                  <Input type="date" aria-label="Data inicial" value={statementStart} onChange={(e) => setStatementStart(e.target.value)} />
+                  <Input type="date" aria-label="Data final" value={statementEnd} onChange={(e) => setStatementEnd(e.target.value)} />
+                </div>
+                <p className="mt-1 text-xs text-gray-400">Detectado pelo arquivo; ajuste se necessário.</p>
+              </div>
             </div>
             <div className="mt-4 flex items-center gap-3">
               <Button
@@ -157,6 +207,8 @@ export function Import() {
               {error && <span className="text-sm text-red-600">{error}</span>}
             </div>
           </Card>
+
+          <CoveragePanel coverage={coverageQuery.data} />
 
           {previewMutation.isPending && <Spinner />}
 
@@ -227,7 +279,7 @@ export function Import() {
                     <p className="text-xs text-gray-400">{r.date}</p>
                   </div>
                   <span className="whitespace-nowrap text-sm font-medium text-gray-700">
-                    {formatBRL(r.amount)}
+                    {formatBRL(r.amount_cents)}
                   </span>
                   <Select
                     className="w-48"
@@ -292,17 +344,19 @@ export function Import() {
                       </td>
                       <td className="px-4 py-2">
                         <button
-                          onClick={() => updateRow(r._key, { is_shared: !r.is_shared })}
+                          onClick={() =>
+                            updateRow(r._key, toSplitFlags(nextSplitState(toSplitState(r))))
+                          }
                           className="cursor-pointer"
-                          title="Alternar compartilhado/individual"
+                          title="Alternar compartilhado / individual / ignorado"
                         >
-                          <Badge tone={r.is_shared ? "indigo" : "gray"}>
-                            {r.is_shared ? "Compartilhado" : "Individual"}
+                          <Badge tone={SPLIT_TONE[toSplitState(r)]}>
+                            {SPLIT_LABEL[toSplitState(r)]}
                           </Badge>
                         </button>
                       </td>
                       <td className="whitespace-nowrap px-4 py-2 text-right font-medium">
-                        {formatBRL(r.amount)}
+                        {formatBRL(r.amount_cents)}
                       </td>
                     </tr>
                   ))}
@@ -331,5 +385,42 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: str
       <div className={`text-2xl font-semibold ${tone ?? "text-gray-900"}`}>{value}</div>
       <div className="text-xs text-gray-500">{label}</div>
     </div>
+  );
+}
+
+function CoveragePanel({ coverage }: { coverage?: Coverage }) {
+  if (!coverage || coverage.batches.length === 0) return null;
+  const label = coverage.statement_type === "account" ? "Conta corrente" : "Cartão de crédito";
+  const institution = coverage.institution === "itau" ? "Itaú" : coverage.institution === "nubank" ? "Nubank" : "Outra";
+  return (
+    <Card className="mt-6">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="font-medium text-gray-900">Cobertura — {label} · {institution}</h2>
+          <p className="text-xs text-gray-500">Intervalos registrados para evitar gastos faltando ou duplicados.</p>
+        </div>
+        <div className="flex gap-2">
+          <Badge tone={coverage.gaps.length ? "amber" : "green"}>{coverage.gaps.length} lacuna(s)</Badge>
+          <Badge tone={coverage.overlaps.length ? "amber" : "green"}>{coverage.overlaps.length} sobreposição(ões)</Badge>
+        </div>
+      </div>
+      {(coverage.gaps.length > 0 || coverage.overlaps.length > 0) && (
+        <div className="space-y-2 text-sm">
+          {coverage.gaps.map((issue) => (
+            <div key={`gap-${issue.start}-${issue.end}`} className="rounded-lg bg-amber-50 px-3 py-2 text-amber-800">
+              Lacuna de {issue.start} a {issue.end} entre <span className="font-medium">{issue.previous_filename}</span> e <span className="font-medium">{issue.filename}</span>.
+            </div>
+          ))}
+          {coverage.overlaps.map((issue) => (
+            <div key={`overlap-${issue.start}-${issue.end}`} className="rounded-lg bg-amber-50 px-3 py-2 text-amber-800">
+              Sobreposição de {issue.start} a {issue.end} entre <span className="font-medium">{issue.previous_filename}</span> e <span className="font-medium">{issue.filename}</span>. Duplicatas idênticas são bloqueadas, mas revise lançamentos diferentes.
+            </div>
+          ))}
+        </div>
+      )}
+      {coverage.gaps.length === 0 && coverage.overlaps.length === 0 && (
+        <p className="text-sm text-emerald-700">Os extratos estão contínuos, sem lacunas ou sobreposições.</p>
+      )}
+    </Card>
   );
 }

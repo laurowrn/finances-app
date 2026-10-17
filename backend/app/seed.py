@@ -6,6 +6,7 @@ Uso:  python -m app.seed
 import asyncio
 
 from app.db import close_client, ensure_indexes, get_db
+from app.services.money import from_decimal
 from app.settings import get_settings
 
 DEFAULT_CATEGORIES = [
@@ -34,7 +35,7 @@ async def seed() -> None:
     ):
         await db.users.update_one(
             {"name": name},
-            {"$setOnInsert": {"name": name, "base_salary": salary}},
+            {"$setOnInsert": {"name": name, "base_salary_cents": from_decimal(salary)}},
             upsert=True,
         )
 

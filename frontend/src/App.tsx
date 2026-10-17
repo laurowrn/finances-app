@@ -6,6 +6,7 @@ import { Categories } from "@/pages/Categories";
 import { Import } from "@/pages/Import";
 import { Login } from "@/pages/Login";
 import { Payments } from "@/pages/Payments";
+import { AiReportPage } from "@/pages/AiReport";
 import { Report } from "@/pages/Report";
 import { Rules } from "@/pages/Rules";
 import { SettingsPage } from "@/pages/Settings";
@@ -28,6 +29,7 @@ export default function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Report />} />
+        <Route path="ai" element={<AiReportPage />} />
         <Route path="import" element={<Import />} />
         <Route path="transactions" element={<Transactions />} />
         <Route path="rules" element={<Rules />} />

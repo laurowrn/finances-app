@@ -8,12 +8,14 @@ export function SettlementCard({
   title,
   settlement,
   action,
+  hint,
 }: {
   title: string;
   settlement: Settlement;
   action?: ReactNode;
+  hint?: string;
 }) {
-  if (!settlement.amount || !settlement.from_user_name) {
+  if (!settlement.amount_cents || !settlement.from_user_name) {
     return (
       <Card className="bg-emerald-50">
         <p className="text-center text-sm font-medium text-emerald-700">
@@ -31,11 +33,12 @@ export function SettlementCard({
       <div className="flex flex-wrap items-center justify-center gap-3 text-center">
         <span className="text-lg font-semibold text-gray-900">{settlement.from_user_name}</span>
         <span className="flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-1.5 text-lg font-bold text-white">
-          {formatBRL(settlement.amount)}
+          {formatBRL(settlement.amount_cents)}
           <ArrowRight className="h-5 w-5" />
         </span>
         <span className="text-lg font-semibold text-gray-900">{settlement.to_user_name}</span>
       </div>
+      {hint && <p className="mt-3 text-center text-xs text-gray-400">{hint}</p>}
     </Card>
   );
 }

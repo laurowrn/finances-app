@@ -7,6 +7,7 @@ import {
   LogOut,
   PiggyBank,
   Settings,
+  Sparkles,
   Tags,
   Wand2,
 } from "lucide-react";
@@ -16,6 +17,7 @@ import { useAuth } from "@/lib/auth";
 
 const NAV = [
   { to: "/", label: "Relatório", icon: LayoutDashboard, end: true },
+  { to: "/ai", label: "Relatório IA", icon: Sparkles },
   { to: "/import", label: "Importar", icon: FileUp },
   { to: "/transactions", label: "Gastos", icon: ArrowLeftRight },
   { to: "/rules", label: "Regras", icon: Wand2 },
@@ -66,10 +68,8 @@ export function Layout() {
           </button>
         </div>
       </aside>
-      <main className="flex-1 overflow-auto p-8">
-        <div className="mx-auto max-w-5xl">
-          <Outlet />
-        </div>
+      <main className="min-w-0 flex-1 overflow-auto p-6 lg:p-8">
+        <Outlet />
       </main>
     </div>
   );

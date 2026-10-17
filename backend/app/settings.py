@@ -1,3 +1,4 @@
+from decimal import Decimal
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -16,10 +17,12 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60 * 24 * 7  # 1 semana
 
     # Usuários seedados (o casal). Senha compartilhada simples para uso local.
+    # Salários ficam em REAIS no .env (é config escrita por humano) e viram
+    # centavos na borda, em seed.py. Decimal, não float: a conversão é exata.
     user_a_name: str = "Pessoa A"
-    user_a_salary: float = 5000.0
+    user_a_salary: Decimal = Decimal("5000")
     user_b_name: str = "Pessoa B"
-    user_b_salary: float = 3000.0
+    user_b_salary: Decimal = Decimal("3000")
     login_password: str = "casal"  # senha única para os dois usuários (uso local)
 
     # IA (opcional). Sem chave, o fluxo de sugestão de regras fica desabilitado.

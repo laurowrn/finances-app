@@ -2,6 +2,7 @@ import csv
 import io
 from datetime import date, datetime
 
+from app.services.money import parse_brl
 from app.services.parsers.base import ParsedTx, ParseError
 
 DATE_HEADERS = {"data", "date", "data da compra", "data de compra"}
@@ -50,24 +51,6 @@ def _parse_date(value: str) -> date | None:
     return None
 
 
-def _parse_amount(value: str) -> float | None:
-    value = (value or "").strip().replace("R$", "").replace(" ", "")
-    if not value:
-        return None
-    # formato PT-BR "1.234,56" -> "1234.56"; formato US "1,234.56" -> "1234.56"
-    if "," in value and "." in value:
-        if value.rfind(",") > value.rfind("."):
-            value = value.replace(".", "").replace(",", ".")
-        else:
-            value = value.replace(",", "")
-    elif "," in value:
-        value = value.replace(",", ".")
-    try:
-        return float(value)
-    except ValueError:
-        return None
-
-
 def _pick(headers: list[str], candidates: set[str]) -> str | None:
     norm = {h: h.strip().lower() for h in headers}
     for h, low in norm.items():
@@ -95,10 +78,10 @@ def parse_csv(content: bytes) -> list[ParsedTx]:
     if not (date_col and desc_col and amount_col):
         raise ParseError(f"Não achei colunas de data/descrição/valor no CSV. Cabeçalhos: {headers}")
 
-    rows: list[tuple[date, str, float]] = []
+    rows: list[tuple[date, str, int]] = []
     for raw in reader:
         d = _parse_date(raw.get(date_col, ""))
-        amount = _parse_amount(raw.get(amount_col, ""))
+        amount = parse_brl(raw.get(amount_col, ""))
         desc = (raw.get(desc_col) or "").strip() or "Sem descrição"
         if d is None or amount is None or amount == 0:
             continue
@@ -116,4 +99,6 @@ def parse_csv(content: bytes) -> list[ParsedTx]:
     else:
         expenses = negatives  # extrato de conta
 
-    return [ParsedTx(date=d, description=desc, amount=abs(amt)) for (d, desc, amt) in expenses]
+    return [
+        ParsedTx(date=d, description=desc, amount_cents=abs(amt)) for (d, desc, amt) in expenses
+    ]

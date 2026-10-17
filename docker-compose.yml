@@ -34,6 +34,11 @@ services:
       - backend
     ports:
       - "3009:3009"
+    volumes:
+      # dev server: código montado do host para o Vite recarregar sem rebuild.
+      # O volume anônimo preserva o node_modules instalado na imagem.
+      - ./frontend:/app
+      - /app/node_modules
     environment:
       VITE_API_BASE: http://localhost:8000
 

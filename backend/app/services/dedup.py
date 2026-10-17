@@ -21,7 +21,12 @@ def merchant_key(text: str) -> str:
     return norm or "sem descricao"
 
 
-def dedup_hash(date_iso: str, amount: float, owner_user_id: str, description: str) -> str:
-    """Hash estável para detectar transações duplicadas em extratos sobrepostos."""
-    base = f"{date_iso}|{round(amount, 2):.2f}|{owner_user_id}|{normalize_description(description)}"
+def dedup_hash(date_iso: str, amount_cents: int, owner_user_id: str, description: str) -> str:
+    """Hash estável para detectar transações duplicadas em extratos sobrepostos.
+
+    O valor entra como int de centavos: a representação é única, então o mesmo
+    lançamento sempre gera o mesmo hash (com float, 1234.56 podia ter mais de
+    uma formatação de origem).
+    """
+    base = f"{date_iso}|{amount_cents}|{owner_user_id}|{normalize_description(description)}"
     return hashlib.sha1(base.encode("utf-8")).hexdigest()
