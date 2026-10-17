@@ -21,7 +21,7 @@ export function Login() {
     const state = params.get("state");
     const savedState = sessionStorage.getItem("oidc_state");
     const verifier = sessionStorage.getItem("oidc_verifier");
-    if (!code || !state || state !== savedState || !verifier) return;
+    if (!code || !state || state !== savedState || !verifier || !oidc?.redirect_uri) return;
     setBusy(true);
     loginWithOidc({ code, code_verifier: verifier, redirect_uri: oidc?.redirect_uri ?? "" })
       .then(() => { sessionStorage.removeItem("oidc_state"); sessionStorage.removeItem("oidc_verifier"); })
