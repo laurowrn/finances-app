@@ -48,7 +48,11 @@ async def oidc_login(body: OidcLoginRequest):
                 raise ValueError("id_token ausente")
             discovery = await client.get(f"{settings.oidc_internal_issuer_url.rstrip('/')}/.well-known/openid-configuration")
             discovery.raise_for_status()
-            jwks = (await client.get(discovery.json()["jwks_uri"])).json()["keys"]
+            # Fetch JWKS through the internal issuer as well. The public issuer
+            # is used for token validation, but the container should not depend
+            # on a Tailscale hairpin to retrieve Keycloak's signing keys.
+            jwks_url = f"{settings.oidc_internal_issuer_url.rstrip('/')}/protocol/openid-connect/certs"
+            jwks = (await client.get(jwks_url)).json()["keys"]
     except (httpx.HTTPError, ValueError, KeyError) as exc:
         raise HTTPException(status_code=401, detail="Não foi possível validar o login Google") from exc
 
