@@ -89,7 +89,7 @@ export function Report() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <Card>
+            <Card className="min-w-0 overflow-hidden">
               <h3 className="mb-4 text-sm font-semibold text-gray-700">Gastos por categoria</h3>
               {data.by_category.length === 0 ? (
                 <EmptyState>Sem gastos neste mês.</EmptyState>
@@ -118,21 +118,23 @@ export function Report() {
               )}
             </Card>
 
-            <Card>
+            <Card className="min-w-0 overflow-hidden">
               <h3 className="mb-4 text-sm font-semibold text-gray-700">
                 Distribuição por categoria
               </h3>
               {data.by_category.length === 0 ? (
                 <EmptyState>Sem gastos neste mês.</EmptyState>
               ) : (
-                <ResponsiveContainer width="100%" height={280}>
+                <ResponsiveContainer width="100%" height={220}>
                   <PieChart>
                     <Pie
                       data={data.by_category}
                       dataKey="total_cents"
                       nameKey="category_name"
-                      innerRadius={60}
-                      outerRadius={100}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius="28%"
+                      outerRadius="44%"
                       paddingAngle={2}
                     >
                       {data.by_category.map((_, i) => (
@@ -140,9 +142,16 @@ export function Report() {
                       ))}
                     </Pie>
                     <Tooltip formatter={(v) => formatBRL(Number(v))} />
-                    <Legend />
                   </PieChart>
                 </ResponsiveContainer>
+                <div className="mt-1 grid min-w-0 grid-cols-1 gap-1 sm:grid-cols-2">
+                  {data.by_category.map((category, i) => (
+                    <div key={category.category_name} className="flex min-w-0 items-center gap-2 text-xs text-gray-600">
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: seriesColor(i) }} />
+                      <span className="truncate" title={category.category_name}>{category.category_name}</span>
+                    </div>
+                  ))}
+                </div>
               )}
             </Card>
           </div>
