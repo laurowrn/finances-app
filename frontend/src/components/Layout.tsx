@@ -10,6 +10,7 @@ import {
   Sparkles,
   Tags,
   Wand2,
+  ShieldCheck,
 } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 
@@ -53,6 +54,21 @@ export function Layout() {
               {label}
             </NavLink>
           ))}
+          {user?.is_admin && (
+            <NavLink
+              to="/admin"
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                  isActive
+                    ? "bg-indigo-50 text-indigo-700"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                }`
+              }
+            >
+              <ShieldCheck className="h-4 w-4" />
+              Administração
+            </NavLink>
+          )}
         </nav>
         <div className="mt-4 border-t border-gray-100 pt-4">
           <div className="mb-2 flex items-center gap-2 px-3 text-sm text-gray-500">

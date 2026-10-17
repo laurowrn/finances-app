@@ -25,7 +25,11 @@ services:
       USER_B_SALARY: ${USER_B_SALARY:-3000}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}
+      ADMIN_USER_IDS: ${ADMIN_USER_IDS:-}
+      ADMIN_STATE_DIR: /run/finances-admin
       CORS_ORIGINS: https://finances.tail1ebd6.ts.net
+    volumes:
+      - /var/lib/finances-app:/run/finances-admin
 
   frontend:
     build: ./frontend

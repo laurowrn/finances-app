@@ -16,6 +16,7 @@ class UserOut(BaseModel):
     id: str
     name: str
     base_salary_cents: int
+    is_admin: bool = False
 
 
 TokenResponse.model_rebuild()

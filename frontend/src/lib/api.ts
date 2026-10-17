@@ -61,6 +61,23 @@ export interface User {
   id: string;
   name: string;
   base_salary_cents: number;
+  is_admin?: boolean;
+}
+
+export interface DeployStatus {
+  status: "idle" | "queued" | "running" | "success" | "failed" | "unknown";
+  commit?: string;
+  updated_at?: string;
+  message?: string;
+}
+
+export interface AdminConfig {
+  environment: string;
+  ai_enabled: boolean;
+  ai_model: string | null;
+  cors_origins: string[];
+  secrets: Record<string, boolean>;
+  note: string;
 }
 
 export interface Category {
@@ -328,6 +345,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ user_id, password }),
     }),
+
+  adminStatus: () => request<DeployStatus>("/admin/status"),
+  triggerAdminDeploy: () =>
+    request<{ status: string; requested_at: string }>("/admin/deploy", { method: "POST" }),
+  adminConfig: () => request<AdminConfig>("/admin/config"),
 
   users: () => request<User[]>("/users"),
   updateUser: (id: string, body: Partial<User>) =>

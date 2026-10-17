@@ -9,8 +9,11 @@ Instalação no servidor:
 ```bash
 install -m 0644 deploy/finances-app-deploy.service /etc/systemd/system/finances-app-deploy.service
 install -m 0644 deploy/finances-app-deploy.timer /etc/systemd/system/finances-app-deploy.timer
+install -m 0644 deploy/finances-app-deploy-trigger.path /etc/systemd/system/finances-app-deploy-trigger.path
+install -m 0644 deploy/finances-app-deploy-trigger.service /etc/systemd/system/finances-app-deploy-trigger.service
 systemctl daemon-reload
 systemctl enable --now finances-app-deploy.timer
+systemctl enable --now finances-app-deploy-trigger.path
 ```
 
 Comandos úteis:

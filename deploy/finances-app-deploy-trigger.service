@@ -1,0 +1,8 @@
+[Unit]
+Description=Executa deploy solicitado pelo painel administrativo
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+ExecStartPre=/usr/bin/rm -f /var/lib/finances-app/deploy.trigger
+ExecStart=/usr/bin/systemctl start finances-app-deploy.service

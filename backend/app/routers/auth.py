@@ -32,5 +32,6 @@ async def login(body: LoginRequest):
             id=user["id"],
             name=user["name"],
             base_salary_cents=user.get("base_salary_cents", 0),
+            is_admin=user["id"] in settings.admin_user_id_list,
         ),
     )

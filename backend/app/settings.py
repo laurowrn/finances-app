@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     user_b_name: str = "Pessoa B"
     user_b_salary: Decimal = Decimal("3000")
     login_password: str = "casal"  # senha única para os dois usuários (uso local)
+    admin_user_ids: str = ""
 
     # IA (opcional). Sem chave, o fluxo de sugestão de regras fica desabilitado.
     anthropic_api_key: str = ""
@@ -39,6 +40,10 @@ class Settings(BaseSettings):
     @property
     def ai_enabled(self) -> bool:
         return bool(self.anthropic_api_key.strip())
+
+    @property
+    def admin_user_id_list(self) -> set[str]:
+        return {user_id.strip() for user_id in self.admin_user_ids.split(",") if user_id.strip()}
 
 
 @lru_cache

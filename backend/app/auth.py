@@ -34,3 +34,9 @@ async def current_user_id(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido"
         ) from exc
+
+
+async def current_admin_user_id(user_id: str = Depends(current_user_id)) -> str:
+    if user_id not in get_settings().admin_user_id_list:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso administrativo necessário")
+    return user_id

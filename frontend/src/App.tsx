@@ -11,6 +11,7 @@ import { Report } from "@/pages/Report";
 import { Rules } from "@/pages/Rules";
 import { SettingsPage } from "@/pages/Settings";
 import { Transactions } from "@/pages/Transactions";
+import { AdminPage } from "@/pages/Admin";
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="payments" element={<Payments />} />
         <Route path="categories" element={<Categories />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="admin" element={<AdminPage />} />
       </Route>
       <Route path="/login" element={<Navigate to="/" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />

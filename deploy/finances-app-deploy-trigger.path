@@ -1,0 +1,9 @@
+[Unit]
+Description=Observa pedidos de deploy do painel administrativo
+
+[Path]
+PathExists=/var/lib/finances-app/deploy.trigger
+Unit=finances-app-deploy-trigger.service
+
+[Install]
+WantedBy=multi-user.target
