@@ -80,6 +80,14 @@ export interface AdminConfig {
   note: string;
 }
 
+export interface SecretMetadata {
+  id: string;
+  name: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Category {
   id: string;
   name: string;
@@ -355,6 +363,12 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(body),
     }),
+  secrets: () => request<SecretMetadata[]>("/admin/secrets"),
+  createSecret: (body: { name: string; value: string; description?: string }) =>
+    request<SecretMetadata>("/admin/secrets", { method: "POST", body: JSON.stringify(body) }),
+  updateSecret: (id: string, body: { name?: string; value?: string; description?: string }) =>
+    request<SecretMetadata>(`/admin/secrets/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteSecret: (id: string) => request(`/admin/secrets/${id}`, { method: "DELETE" }),
 
   users: () => request<User[]>("/users"),
   updateUser: (id: string, body: Partial<User>) =>

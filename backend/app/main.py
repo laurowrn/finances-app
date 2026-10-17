@@ -13,6 +13,7 @@ from app.routers import (
     payments,
     reports,
     rules,
+    secrets,
     transactions,
     users,
 )
@@ -43,6 +44,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(admin.router)
+app.include_router(secrets.router)
 app.include_router(ai.router)
 app.include_router(users.router)
 app.include_router(categories.router)

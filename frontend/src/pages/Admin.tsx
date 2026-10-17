@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, Clock3, RefreshCw, Rocket, ShieldCheck } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock3, KeyRound, RefreshCw, Rocket, ShieldCheck, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { Badge, Button, Card, Input, PageHeader, Spinner } from "@/components/ui";
@@ -22,6 +22,7 @@ export function AdminPage() {
     refetchInterval: 5000,
   });
   const config = useQuery({ queryKey: ["admin-config"], queryFn: api.adminConfig });
+  const secrets = useQuery({ queryKey: ["admin-secrets"], queryFn: api.secrets });
   const deploy = useMutation({
     mutationFn: api.triggerAdminDeploy,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-status"] }),
@@ -29,6 +30,19 @@ export function AdminPage() {
   const saveConfig = useMutation({
     mutationFn: ({ key, value }: { key: string; value: string }) => api.updateAdminConfig(key, { value }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-config"] }),
+  });
+  const saveSecret = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: { name?: string; value?: string; description?: string } }) =>
+      api.updateSecret(id, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-secrets"] }),
+  });
+  const createSecret = useMutation({
+    mutationFn: api.createSecret,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-secrets"] }),
+  });
+  const deleteSecret = useMutation({
+    mutationFn: api.deleteSecret,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-secrets"] }),
   });
 
   const current = status.data;
@@ -100,9 +114,94 @@ export function AdminPage() {
       <Card className="mt-4 border-amber-100 bg-amber-50/50">
         <p className="flex gap-2 text-sm text-amber-800">
           <AlertTriangle className="h-4 w-4 shrink-0" />
-          Segredos nunca são exibidos nesta tela. A alteração deles continua sendo feita no arquivo protegido do servidor.
+          Segredos nunca são exibidos nesta tela. Seus valores ficam criptografados no Mongo e a chave-mestra permanece no servidor.
         </p>
       </Card>
+
+      <SecretManager
+        secrets={secrets.data ?? []}
+        loading={secrets.isLoading}
+        onCreate={(body) => createSecret.mutate(body)}
+        onSave={(id, body) => saveSecret.mutate({ id, body })}
+        onDelete={(id) => {
+          if (window.confirm("Excluir este secret? Essa ação não pode ser desfeita.")) deleteSecret.mutate(id);
+        }}
+      />
+    </div>
+  );
+}
+
+function SecretManager({
+  secrets,
+  loading,
+  onCreate,
+  onSave,
+  onDelete,
+}: {
+  secrets: import("@/lib/api").SecretMetadata[];
+  loading: boolean;
+  onCreate: (body: { name: string; value: string; description: string }) => void;
+  onSave: (id: string, body: { name?: string; value?: string; description?: string }) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [name, setName] = useState("");
+  const [value, setValue] = useState("");
+  const [description, setDescription] = useState("");
+  return (
+    <Card className="mt-4">
+      <div className="mb-4 flex items-center gap-2">
+        <KeyRound className="h-5 w-5 text-indigo-600" />
+        <div>
+          <h2 className="font-semibold text-gray-900">Secrets</h2>
+          <p className="text-xs text-gray-500">CRUD de valores criptografados para integrações e serviços futuros.</p>
+        </div>
+      </div>
+      <div className="mb-5 grid grid-cols-1 gap-2 rounded-xl bg-gray-50 p-3 md:grid-cols-[1fr_1fr_1fr_auto]">
+        <Input placeholder="NOME_DO_SECRET" value={name} onChange={(e) => setName(e.target.value)} />
+        <Input type="password" placeholder="Valor" value={value} onChange={(e) => setValue(e.target.value)} />
+        <Input placeholder="Descrição (opcional)" value={description} onChange={(e) => setDescription(e.target.value)} />
+        <Button
+          disabled={!name.trim() || !value}
+          onClick={() => {
+            onCreate({ name, value, description });
+            setName(""); setValue(""); setDescription("");
+          }}
+        >Criar</Button>
+      </div>
+      {loading ? <Spinner /> : secrets.length === 0 ? (
+        <p className="text-sm text-gray-500">Nenhum secret criado.</p>
+      ) : (
+        <div className="space-y-3">
+          {secrets.map((secret) => <SecretRow key={secret.id} secret={secret} onSave={onSave} onDelete={onDelete} />)}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function SecretRow({
+  secret,
+  onSave,
+  onDelete,
+}: {
+  secret: import("@/lib/api").SecretMetadata;
+  onSave: (id: string, body: { name?: string; value?: string; description?: string }) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [name, setName] = useState(secret.name);
+  const [value, setValue] = useState("");
+  const [description, setDescription] = useState(secret.description);
+  return (
+    <div className="grid grid-cols-1 gap-2 border-b border-gray-100 pb-3 md:grid-cols-[1fr_1fr_1fr_auto_auto]">
+      <Input value={name} onChange={(e) => setName(e.target.value)} />
+      <Input type="password" placeholder="Novo valor (opcional)" value={value} onChange={(e) => setValue(e.target.value)} />
+      <Input value={description} onChange={(e) => setDescription(e.target.value)} />
+      <Button size="sm" onClick={() => { onSave(secret.id, { name, description, ...(value ? { value } : {}) }); setValue(""); }}>
+        Salvar
+      </Button>
+      <Button variant="danger" size="sm" onClick={() => onDelete(secret.id)} aria-label={`Excluir ${secret.name}`}>
+        <Trash2 className="h-4 w-4" />
+      </Button>
     </div>
   );
 }

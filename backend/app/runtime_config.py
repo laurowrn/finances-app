@@ -16,9 +16,20 @@ def _fernet() -> Fernet:
     return Fernet(key.encode())
 
 
+def encrypt_secret(value: str) -> str:
+    return _fernet().encrypt(value.encode()).decode()
+
+
+def decrypt_secret(value: str) -> str:
+    try:
+        return _fernet().decrypt(value.encode()).decode()
+    except InvalidToken as exc:
+        raise RuntimeError("Não foi possível descriptografar o secret") from exc
+
+
 def _serialize(key: str, value: str) -> dict:
     if key in SECRET_KEYS:
-        return {"kind": "secret", "value": _fernet().encrypt(value.encode()).decode()}
+        return {"kind": "secret", "value": encrypt_secret(value)}
     return {"kind": "plain", "value": value}
 
 
@@ -27,8 +38,8 @@ def _deserialize(key: str, entry: dict) -> str:
     if key not in SECRET_KEYS:
         return value
     try:
-        return _fernet().decrypt(value.encode()).decode()
-    except InvalidToken as exc:
+        return decrypt_secret(value)
+    except RuntimeError as exc:
         raise RuntimeError(f"Não foi possível descriptografar {key}") from exc
 
 
