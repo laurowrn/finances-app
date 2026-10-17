@@ -125,33 +125,35 @@ export function Report() {
               {data.by_category.length === 0 ? (
                 <EmptyState>Sem gastos neste mês.</EmptyState>
               ) : (
-                <ResponsiveContainer width="100%" height={220}>
-                  <PieChart>
-                    <Pie
-                      data={data.by_category}
-                      dataKey="total_cents"
-                      nameKey="category_name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius="28%"
-                      outerRadius="44%"
-                      paddingAngle={2}
-                    >
-                      {data.by_category.map((_, i) => (
-                        <Cell key={i} fill={seriesColor(i)} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(v) => formatBRL(Number(v))} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="mt-1 grid min-w-0 grid-cols-1 gap-1 sm:grid-cols-2">
-                  {data.by_category.map((category, i) => (
-                    <div key={category.category_name} className="flex min-w-0 items-center gap-2 text-xs text-gray-600">
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: seriesColor(i) }} />
-                      <span className="truncate" title={category.category_name}>{category.category_name}</span>
-                    </div>
-                  ))}
-                </div>
+                <>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <PieChart>
+                      <Pie
+                        data={data.by_category}
+                        dataKey="total_cents"
+                        nameKey="category_name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius="28%"
+                        outerRadius="44%"
+                        paddingAngle={2}
+                      >
+                        {data.by_category.map((_, i) => (
+                          <Cell key={i} fill={seriesColor(i)} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(v) => formatBRL(Number(v))} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="mt-1 grid min-w-0 grid-cols-1 gap-1 sm:grid-cols-2">
+                    {data.by_category.map((category, i) => (
+                      <div key={category.category_name} className="flex min-w-0 items-center gap-2 text-xs text-gray-600">
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: seriesColor(i) }} />
+                        <span className="truncate" title={category.category_name}>{category.category_name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
             </Card>
           </div>
