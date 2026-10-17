@@ -6,4 +6,4 @@ Wants=docker.service network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/finances-app
-ExecStart=/usr/local/sbin/finances-app-deploy
+ExecStart=/opt/finances-app/deploy/finances-app-deploy.sh

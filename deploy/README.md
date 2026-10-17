@@ -7,7 +7,6 @@ Esse arquivo é ignorado pelo Git e não é substituído pelo deploy.
 Instalação no servidor:
 
 ```bash
-install -m 0755 deploy/finances-app-deploy.sh /usr/local/sbin/finances-app-deploy
 install -m 0644 deploy/finances-app-deploy.service /etc/systemd/system/finances-app-deploy.service
 install -m 0644 deploy/finances-app-deploy.timer /etc/systemd/system/finances-app-deploy.timer
 systemctl daemon-reload
