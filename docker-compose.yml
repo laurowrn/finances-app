@@ -3,7 +3,7 @@ services:
     image: mongo:7
     restart: unless-stopped
     ports:
-      - "27018:27017"
+      - "127.0.0.1:27018:27017"
     volumes:
       - mongo_data:/data/db
 
@@ -13,19 +13,19 @@ services:
     depends_on:
       - mongo
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
       MONGO_URI: mongodb://mongo:27017
       MONGO_DB: group_finance
-      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
-      LOGIN_PASSWORD: ${LOGIN_PASSWORD:-casal}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be defined in .env}
+      LOGIN_PASSWORD: ${LOGIN_PASSWORD:?LOGIN_PASSWORD must be defined in .env}
       USER_A_NAME: ${USER_A_NAME:-Pessoa A}
       USER_A_SALARY: ${USER_A_SALARY:-5000}
       USER_B_NAME: ${USER_B_NAME:-Pessoa B}
       USER_B_SALARY: ${USER_B_SALARY:-3000}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}
-      CORS_ORIGINS: http://localhost:3009
+      CORS_ORIGINS: https://finances.tail1ebd6.ts.net
 
   frontend:
     build: ./frontend
@@ -33,14 +33,29 @@ services:
     depends_on:
       - backend
     ports:
-      - "3009:3009"
+      - "127.0.0.1:3009:3009"
     volumes:
       # dev server: código montado do host para o Vite recarregar sem rebuild.
       # O volume anônimo preserva o node_modules instalado na imagem.
       - ./frontend:/app
       - /app/node_modules
     environment:
-      VITE_API_BASE: http://localhost:8000
+      VITE_API_BASE: /api
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - frontend
+      - backend
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
 
 volumes:
   mongo_data:
+  caddy_data:
+  caddy_config:

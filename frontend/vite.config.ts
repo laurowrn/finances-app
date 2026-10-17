@@ -12,5 +12,6 @@ export default defineConfig({
   server: {
     port: 3009,
     host: true,
+    allowedHosts: ["finances.tail1ebd6.ts.net"],
   },
 });
