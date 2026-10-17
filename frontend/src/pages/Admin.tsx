@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle2, Clock3, RefreshCw, Rocket, ShieldCheck } from "lucide-react";
+import { useState } from "react";
 
-import { Badge, Button, Card, PageHeader, Spinner } from "@/components/ui";
+import { Badge, Button, Card, Input, PageHeader, Spinner } from "@/components/ui";
 import { api } from "@/lib/api";
 
 const statusLabel: Record<string, string> = {
@@ -24,6 +25,10 @@ export function AdminPage() {
   const deploy = useMutation({
     mutationFn: api.triggerAdminDeploy,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-status"] }),
+  });
+  const saveConfig = useMutation({
+    mutationFn: ({ key, value }: { key: string; value: string }) => api.updateAdminConfig(key, { value }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-config"] }),
   });
 
   const current = status.data;
@@ -80,8 +85,8 @@ export function AdminPage() {
               <div className="space-y-3 text-sm">
                 <Row label="Ambiente" value={config.data.environment} />
                 <Row label="IA habilitada" value={config.data.ai_enabled ? `Sim (${config.data.ai_model})` : "Não"} />
-                {Object.entries(config.data.secrets).map(([key, present]) => (
-                  <Row key={key} label={key} value={present ? "Configurado (valor oculto)" : "Não configurado"} />
+                {Object.entries(config.data.values).map(([key, item]) => (
+                  <ConfigField key={key} name={key} item={item} onSave={(value) => saveConfig.mutate({ key, value })} />
                 ))}
                 <p className="flex gap-2 border-t border-gray-100 pt-3 text-xs text-gray-400">
                   <CheckCircle2 className="h-4 w-4 shrink-0" /> {config.data.note}
@@ -98,6 +103,39 @@ export function AdminPage() {
           Segredos nunca são exibidos nesta tela. A alteração deles continua sendo feita no arquivo protegido do servidor.
         </p>
       </Card>
+    </div>
+  );
+}
+
+function ConfigField({
+  name,
+  item,
+  onSave,
+}: {
+  name: string;
+  item: { secret: boolean; configured: boolean; value: string | null };
+  onSave: (value: string) => void;
+}) {
+  const [value, setValue] = useState("");
+  return (
+    <div className="border-b border-gray-50 pb-3">
+      <div className="mb-1 flex items-center justify-between gap-3">
+        <span className="font-medium text-gray-700">{name}</span>
+        <span className="text-xs text-gray-400">
+          {item.configured ? (item.secret ? "Configurado · oculto" : "Configurado") : "Não configurado"}
+        </span>
+      </div>
+      <div className="flex gap-2">
+        <Input
+          type={item.secret ? "password" : "text"}
+          placeholder={item.secret ? "Digite um novo valor" : item.value ?? "Digite um valor"}
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+        />
+        <Button size="sm" disabled={!value.trim()} onClick={() => onSave(value)}>
+          Salvar
+        </Button>
+      </div>
     </div>
   );
 }

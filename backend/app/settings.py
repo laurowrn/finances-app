@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     user_b_salary: Decimal = Decimal("3000")
     login_password: str = "casal"  # senha única para os dois usuários (uso local)
     admin_user_ids: str = ""
+    secrets_encryption_key: str = ""
 
     # IA (opcional). Sem chave, o fluxo de sugestão de regras fica desabilitado.
     anthropic_api_key: str = ""

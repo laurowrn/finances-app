@@ -76,7 +76,7 @@ export interface AdminConfig {
   ai_enabled: boolean;
   ai_model: string | null;
   cors_origins: string[];
-  secrets: Record<string, boolean>;
+  values: Record<string, { secret: boolean; configured: boolean; value: string | null }>;
   note: string;
 }
 
@@ -350,6 +350,11 @@ export const api = {
   triggerAdminDeploy: () =>
     request<{ status: string; requested_at: string }>("/admin/deploy", { method: "POST" }),
   adminConfig: () => request<AdminConfig>("/admin/config"),
+  updateAdminConfig: (key: string, body: { value?: string; clear?: boolean }) =>
+    request<{ key: string; configured: boolean }>(`/admin/config/${key}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
 
   users: () => request<User[]>("/users"),
   updateUser: (id: string, body: Partial<User>) =>

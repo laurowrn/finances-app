@@ -18,12 +18,14 @@ from app.routers import (
 )
 from app.seed import seed_if_empty
 from app.settings import get_settings
+from app.runtime_config import load_runtime_config
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await ensure_indexes()
     await seed_if_empty()
+    await load_runtime_config()
     yield
     close_client()
 
