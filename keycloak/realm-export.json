@@ -1,0 +1,36 @@
+{
+  "realm": "group-finance",
+  "enabled": true,
+  "displayName": "Finanças do Casal",
+  "registrationAllowed": false,
+  "rememberMe": true,
+  "clients": [
+    {
+      "clientId": "group-finance-web",
+      "name": "Finanças do Casal Web",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["https://finances.tail1ebd6.ts.net/login"],
+      "webOrigins": ["https://finances.tail1ebd6.ts.net"],
+      "attributes": {"pkce.code.challenge.method": "S256"}
+    }
+  ],
+  "identityProviders": [
+    {
+      "alias": "google",
+      "displayName": "Google",
+      "providerId": "google",
+      "enabled": false,
+      "trustEmail": true,
+      "storeToken": false,
+      "config": {
+        "clientId": "REPLACE_WITH_GOOGLE_CLIENT_ID",
+        "clientSecret": "REPLACE_WITH_GOOGLE_CLIENT_SECRET",
+        "defaultScope": "openid profile email"
+      }
+    }
+  ]
+}
