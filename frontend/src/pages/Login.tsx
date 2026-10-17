@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { PiggyBank } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { Button, Card, Input, Select } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -14,6 +14,7 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const processedOidcCode = useRef<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -22,9 +23,15 @@ export function Login() {
     const savedState = sessionStorage.getItem("oidc_state");
     const verifier = sessionStorage.getItem("oidc_verifier");
     if (!code || !state || state !== savedState || !verifier || !oidc?.redirect_uri) return;
+    if (processedOidcCode.current === code) return;
+    processedOidcCode.current = code;
     setBusy(true);
     loginWithOidc({ code, code_verifier: verifier, redirect_uri: oidc?.redirect_uri ?? "" })
-      .then(() => { sessionStorage.removeItem("oidc_state"); sessionStorage.removeItem("oidc_verifier"); })
+      .then(() => {
+        sessionStorage.removeItem("oidc_state");
+        sessionStorage.removeItem("oidc_verifier");
+        window.history.replaceState({}, document.title, window.location.pathname);
+      })
       .catch(() => setError("Não foi possível concluir o login com Google."))
       .finally(() => setBusy(false));
   }, [loginWithOidc, oidc]);
