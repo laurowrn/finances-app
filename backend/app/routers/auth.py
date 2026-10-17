@@ -68,6 +68,7 @@ async def oidc_login(body: OidcLoginRequest):
             algorithms=[header.get("alg", "RS256")],
             audience=settings.oidc_client_id,
             issuer=settings.oidc_issuer_url,
+            access_token=token_data.get("access_token"),
         )
     except (StopIteration, ValueError, KeyError, Exception) as exc:
         logger.warning("OIDC token validation failed: %s - %s", type(exc).__name__, str(exc))
