@@ -6,6 +6,7 @@ interface AuthContextValue {
   user: User | null;
   loading: boolean;
   login: (userId: string, password: string) => Promise<void>;
+  loginWithOidc: (body: { code: string; code_verifier: string; redirect_uri: string }) => Promise<void>;
   logout: () => void;
 }
 
@@ -35,6 +36,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(res.user);
   }
 
+  async function loginWithOidc(body: { code: string; code_verifier: string; redirect_uri: string }) {
+    const res = await api.oidcLogin(body);
+    setToken(res.access_token);
+    localStorage.setItem(USER_KEY, JSON.stringify(res.user));
+    setUser(res.user);
+  }
+
   function logout() {
     setToken(null);
     localStorage.removeItem(USER_KEY);
@@ -42,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithOidc, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -64,6 +64,13 @@ export interface User {
   is_admin?: boolean;
 }
 
+export interface OidcConfig {
+  enabled: boolean;
+  authorization_endpoint: string;
+  client_id: string;
+  redirect_uri: string;
+}
+
 export interface DeployStatus {
   status: "idle" | "queued" | "running" | "success" | "failed" | "unknown";
   commit?: string;
@@ -352,6 +359,12 @@ export const api = {
     request<{ access_token: string; user: User }>("/auth/login", {
       method: "POST",
       body: JSON.stringify({ user_id, password }),
+    }),
+  oidcConfig: () => request<OidcConfig>("/auth/oidc/config"),
+  oidcLogin: (body: { code: string; code_verifier: string; redirect_uri: string }) =>
+    request<{ access_token: string; user: User }>("/auth/oidc/login", {
+      method: "POST",
+      body: JSON.stringify(body),
     }),
 
   adminStatus: () => request<DeployStatus>("/admin/status"),

@@ -6,6 +6,12 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class OidcLoginRequest(BaseModel):
+    code: str
+    code_verifier: str
+    redirect_uri: str
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

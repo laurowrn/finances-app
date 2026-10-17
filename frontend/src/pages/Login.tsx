@@ -7,12 +7,27 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 export function Login() {
-  const { login } = useAuth();
+  const { login, loginWithOidc } = useAuth();
   const { data: users } = useQuery({ queryKey: ["public-users"], queryFn: api.publicUsers });
+  const { data: oidc } = useQuery({ queryKey: ["oidc-config"], queryFn: api.oidcConfig });
   const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    const state = params.get("state");
+    const savedState = sessionStorage.getItem("oidc_state");
+    const verifier = sessionStorage.getItem("oidc_verifier");
+    if (!code || !state || state !== savedState || !verifier) return;
+    setBusy(true);
+    loginWithOidc({ code, code_verifier: verifier, redirect_uri: oidc?.redirect_uri ?? "" })
+      .then(() => { sessionStorage.removeItem("oidc_state"); sessionStorage.removeItem("oidc_verifier"); })
+      .catch(() => setError("Não foi possível concluir o login com Google."))
+      .finally(() => setBusy(false));
+  }, [loginWithOidc, oidc]);
 
   useEffect(() => {
     if (users && users.length && !userId) setUserId(users[0].id);
@@ -29,6 +44,26 @@ export function Login() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function loginGoogle() {
+    if (!oidc?.enabled) return;
+    const state = randomString();
+    const verifier = randomString(64);
+    const challenge = await sha256Base64Url(verifier);
+    sessionStorage.setItem("oidc_state", state);
+    sessionStorage.setItem("oidc_verifier", verifier);
+    const query = new URLSearchParams({
+      client_id: oidc.client_id,
+      redirect_uri: oidc.redirect_uri,
+      response_type: "code",
+      scope: "openid profile email",
+      state,
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+      kc_idp_hint: "google",
+    });
+    window.location.assign(`${oidc.authorization_endpoint}?${query}`);
   }
 
   return (
@@ -64,8 +99,27 @@ export function Login() {
           <Button type="submit" disabled={busy || !userId}>
             {busy ? "Entrando..." : "Entrar"}
           </Button>
+          {oidc?.enabled && (
+            <Button type="button" variant="secondary" onClick={loginGoogle} disabled={busy}>
+              Entrar com Google
+            </Button>
+          )}
         </form>
       </Card>
     </div>
   );
+}
+
+function randomString(length = 32) {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function sha256Base64Url(value: string) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  const bytes = new Uint8Array(digest);
+  let binary = "";
+  bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }

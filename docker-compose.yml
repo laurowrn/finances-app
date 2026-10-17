@@ -12,6 +12,7 @@ services:
     restart: unless-stopped
     depends_on:
       - mongo
+      - keycloak
     ports:
       - "127.0.0.1:8000:8000"
     environment:
@@ -28,6 +29,13 @@ services:
       ADMIN_USER_IDS: ${ADMIN_USER_IDS:-}
       SECRETS_ENCRYPTION_KEY: ${SECRETS_ENCRYPTION_KEY:?SECRETS_ENCRYPTION_KEY must be defined in .env}
       ADMIN_STATE_DIR: /run/finances-admin
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-https://finances.tail1ebd6.ts.net/auth/realms/group-finance}
+      OIDC_INTERNAL_ISSUER_URL: ${OIDC_INTERNAL_ISSUER_URL:-http://keycloak:8080/auth/realms/group-finance}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-group-finance-web}
+      OIDC_ENABLED: ${OIDC_ENABLED:-false}
+      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-https://finances.tail1ebd6.ts.net/login}
+      OIDC_ALLOWED_EMAILS: ${OIDC_ALLOWED_EMAILS:-laurowrn@gmail.com,nayarapaolat@gmail.com}
+      OIDC_EMAIL_USER_MAP: ${OIDC_EMAIL_USER_MAP:?OIDC_EMAIL_USER_MAP must be defined in .env}
       CORS_ORIGINS: https://finances.tail1ebd6.ts.net
     volumes:
       - /var/lib/finances-app:/run/finances-admin
@@ -60,7 +68,26 @@ services:
       - caddy_data:/data
       - caddy_config:/config
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.0
+    restart: unless-stopped
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:?KEYCLOAK_ADMIN must be defined in .env}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD must be defined in .env}
+      KC_HTTP_ENABLED: "true"
+      KC_HTTP_RELATIVE_PATH: /auth
+      KC_HOSTNAME: https://finances.tail1ebd6.ts.net/auth
+      KC_PROXY_HEADERS: xforwarded
+      JAVA_OPTS_KC_HEAP: -XX:MaxRAMPercentage=50
+    ports:
+      - "127.0.0.1:8081:8080"
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/group-finance-realm.json:ro
+
 volumes:
   mongo_data:
   caddy_data:
   caddy_config:
+  keycloak_data:
