@@ -90,7 +90,6 @@ export function AiReportPage() {
             <GoalsPanel
               title={`Metas para ${shortPeriod(report.goals_period)}`}
               subtitle="O que acompanhar no novo mês"
-              report={report}
               progress={progress}
             />
           )}

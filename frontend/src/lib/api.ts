@@ -448,6 +448,7 @@ export const api = {
     source: Source;
     owner_user_id: string;
     statement_type: StatementType;
+    institution: Institution;
     statement_start?: string;
     statement_end?: string;
     rows: ImportCommitRow[];
