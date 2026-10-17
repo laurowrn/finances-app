@@ -84,7 +84,7 @@ services:
       - "127.0.0.1:8081:8080"
     volumes:
       - keycloak_data:/opt/keycloak/data
-      - ./keycloak/realm-export.json:/opt/keycloak/data/import/group-finance-realm.json:ro
+      - ./keycloak:/opt/keycloak/data/import:ro
 
 volumes:
   mongo_data:
