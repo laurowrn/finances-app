@@ -1,4 +1,5 @@
 import httpx
+import logging
 from fastapi import APIRouter, HTTPException, status
 from jose import jwk, jwt
 
@@ -8,6 +9,7 @@ from app.schemas.auth import LoginRequest, OidcLoginRequest, TokenResponse, User
 from app.settings import get_settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("/oidc/config")
@@ -54,6 +56,7 @@ async def oidc_login(body: OidcLoginRequest):
             jwks_url = f"{settings.oidc_internal_issuer_url.rstrip('/')}/protocol/openid-connect/certs"
             jwks = (await client.get(jwks_url)).json()["keys"]
     except (httpx.HTTPError, ValueError, KeyError) as exc:
+        logger.warning("OIDC token exchange failed: %s", type(exc).__name__)
         raise HTTPException(status_code=401, detail="Não foi possível validar o login Google") from exc
 
     try:
@@ -67,6 +70,7 @@ async def oidc_login(body: OidcLoginRequest):
             issuer=settings.oidc_issuer_url,
         )
     except (StopIteration, ValueError, KeyError, Exception) as exc:
+        logger.warning("OIDC token validation failed: %s - %s", type(exc).__name__, str(exc))
         raise HTTPException(status_code=401, detail="Token OIDC inválido") from exc
 
     email = str(claims.get("email", "")).strip().lower()
