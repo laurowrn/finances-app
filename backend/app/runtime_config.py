@@ -76,3 +76,11 @@ async def clear_runtime_config(key: str) -> None:
         {"_id": "runtime"},
         {"$unset": {f"values.{key}": ""}, "$set": {"updated_at": datetime.now(UTC)}},
     )
+
+
+async def get_named_secret(name: str) -> str | None:
+    """Lê um secret customizado para integrações do backend, sem expô-lo na API."""
+    doc = await get_db().secrets.find_one({"name": name}, {"ciphertext": 1})
+    if not doc:
+        return None
+    return decrypt_secret(doc["ciphertext"])
